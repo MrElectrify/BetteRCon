@@ -28,6 +28,7 @@ namespace BetteRCon
 			using Worker_t = asio::io_context;
 			using Proto_t = asio::ip::tcp;			
 			using Endpoint_t = Proto_t::endpoint;
+			using Socket_t = Proto_t::socket;
 
 			// Creates a server connection
 			Connection(Worker_t& worker);
@@ -35,7 +36,9 @@ namespace BetteRCon
 			// Attempts to connect to a remote server. Throws ErrorCode_t on error
 			void Connect(const Endpoint_t& endpoint);
 			// Attempts to connect to a remote server. Returns ErrorCode_t in ec on error
-			void Connect(const Endpoint_t endpoint, ErrorCode_t& ec);
+			void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+		private:
+			Socket_t m_socket;
 		};
 	}
 }

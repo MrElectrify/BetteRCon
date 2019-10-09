@@ -6,6 +6,9 @@
  *	10/9/19 01:14
  */
 
+ // BetteRCon
+#include <BetteRCon/Internal/Connection.h>
+
 // STL
 #include <mutex>
 #include <thread>

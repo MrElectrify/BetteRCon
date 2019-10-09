@@ -146,6 +146,7 @@
     <ClInclude Include="include\BetteRCon\Server.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Internal\Connection.cpp" />
     <ClCompile Include="src\Server.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
