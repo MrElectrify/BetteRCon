@@ -2,13 +2,13 @@ BetteRConFramework employs the basic framework used in the GUI and Layer Standal
 It includes the communications with the server, player management, command execution, 
 event handling with plugin support, as well as layer components.
 
-The main class is BetteRConServer. This surrounds the main connection and its own thread,
+The main class is BetteRCon::Server. This surrounds the main connection and its own thread,
 which exists to isolate servers from each other. This prevents complete lockup if,
 for example, a plugin malfunctions and locks the main server thread. All server
 communications use Asio by Chris Kohlhoff, which ensure the highest-possible
 single-threaded performance per-server, on each platform which Asio is implemented.
 
-A plugin will inherit from the interface BetteRConPlugin, and define the exported factory with
+A plugin will inherit from the interface BetteRCon::Plugin, and define the exported factory with
 the signature `Plugin_t* _CreatePlugin()`, as well as an exported deleter function with the
 signature `void _DeletePlugin(Plugin_t*)`, which will do any necessary cleanup and
 free the memory allocated by the factory, using whichever memory pool that was used to create 

@@ -23,4 +23,14 @@
   <ItemGroup>
     <Text Include="Design.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Server.cpp">
+      <Filter>Source Files\BetteRCon</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\BetteRCon\Server.h">
+      <Filter>Header Files\BetteRCon</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
