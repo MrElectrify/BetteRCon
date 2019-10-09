@@ -20,4 +20,7 @@
       <UniqueIdentifier>{516c902a-80d7-480b-8354-4154ff0c1227}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Design.txt" />
+  </ItemGroup>
 </Project>
