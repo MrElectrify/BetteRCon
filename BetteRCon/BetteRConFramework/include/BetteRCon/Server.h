@@ -6,9 +6,10 @@
  *	10/9/19 01:14
  */
 
-#include <asio.hpp>
-
+// STL
+#include <mutex>
 #include <thread>
+#include <vector>
 
 namespace BetteRCon
 {
@@ -22,7 +23,7 @@ namespace BetteRCon
 	public:
 
 	private:
-
+		std::thread m_thread;
 	};
 }
 

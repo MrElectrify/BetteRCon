@@ -19,6 +19,9 @@
     <Filter Include="Source Files\BetteRCon">
       <UniqueIdentifier>{516c902a-80d7-480b-8354-4154ff0c1227}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\BetteRCon\Internal">
+      <UniqueIdentifier>{ec430e86-5cbf-4138-b712-2a1b9a6932ab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Design.txt" />
@@ -31,6 +34,9 @@
   <ItemGroup>
     <ClInclude Include="include\BetteRCon\Server.h">
       <Filter>Header Files\BetteRCon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\BetteRCon\Internal\Connection.h">
+      <Filter>Header Files\BetteRCon\Internal</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
