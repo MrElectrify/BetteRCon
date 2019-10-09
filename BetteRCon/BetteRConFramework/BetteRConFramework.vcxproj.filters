@@ -36,12 +36,18 @@
     <ClCompile Include="src\Internal\Connection.cpp">
       <Filter>Source Files\BetteRCon\Internal</Filter>
     </ClCompile>
+    <ClCompile Include="src\Internal\Packet.cpp">
+      <Filter>Source Files\BetteRCon\Internal</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\BetteRCon\Server.h">
       <Filter>Header Files\BetteRCon</Filter>
     </ClInclude>
     <ClInclude Include="include\BetteRCon\Internal\Connection.h">
+      <Filter>Header Files\BetteRCon\Internal</Filter>
+    </ClInclude>
+    <ClInclude Include="include\BetteRCon\Internal\Packet.h">
       <Filter>Header Files\BetteRCon\Internal</Filter>
     </ClInclude>
   </ItemGroup>
