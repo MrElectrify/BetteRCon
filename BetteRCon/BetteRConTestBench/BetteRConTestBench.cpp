@@ -1,6 +1,7 @@
 #include <BetteRCon/Server.h>
 #include <BetteRCon/Internal/Packet.h>
 
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -37,7 +38,66 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	
+
+	// create the serverInfo request
+	Packet serverInfoRequest({ "serverInfo" }, 0);
+
+	// send the serverInfo request
+	conn.SendPacket(serverInfoRequest);
+
+	if (ec)
+	{
+		if (ec == asio::error::not_connected)
+		{
+			// we are not connected. fetch the error
+			ec = conn.GetLastErrorCode();
+		}
+		std::cout << "Failed to send packet: " << ec.message() << '\n';
+		return 1;
+	}
+
+	std::function<void()> job = [&conn, &job, &worker]() -> void
+	{
+		Connection::ErrorCode_t ec;
+
+		// wait for the packet to arrive
+		auto pPacket = conn.RecvResponse(0, ec);
+
+		if (ec)
+		{
+			if (ec == asio::error::not_connected)
+			{
+				// we are not connected. fetch the error
+				ec = conn.GetLastErrorCode();
+			}
+			std::cout << "Failed to send packet: " << ec.message() << '\n';
+			return;
+		}
+
+		if (pPacket == nullptr)
+		{
+			// add the job again
+			worker.post(job);
+			return;
+		}
+
+		// we got the packet. print the response
+		std::cout << "Response: ";
+		for (const auto& word : pPacket->GetWords())
+		{
+			std::cout << word << ':';
+		}
+		std::cout << '\n';
+
+		// close the connection
+		conn.Disconnect();
+	};
+
+	worker.post(job);
+
+	worker.run();
+
+	std::cout << "Testing complete\n";
 
 	return 0;
 }

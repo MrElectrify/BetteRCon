@@ -15,6 +15,7 @@
 // STL
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -40,10 +41,18 @@ namespace BetteRCon
 			// Creates a server connection
 			Connection(Worker_t& worker);
 
-			// Attempts to connect to a remote server. Throws ErrorCode_t on error
+			// Attempts to connect to a remote server, and starts the read loop. Throws ErrorCode_t on error
 			void Connect(const Endpoint_t& endpoint);
-			// Attempts to connect to a remote server. Returns ErrorCode_t in ec on error
+			// Attempts to connect to a remote server, and starts the read loop. Returns ErrorCode_t in ec on error
 			void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+
+			// Attempts to disconnect from the remote endpoint. Throws ErrorCode_t on error
+			void Disconnect();
+			// Attempts to disconnect from the remote endpoint. Returns ErrorCode_t in ec on error
+			void Disconnect(ErrorCode_t& ec) noexcept;
+
+			// Gets the last error code, which will tell why the server disconnected if it did
+			ErrorCode_t GetLastErrorCode() const noexcept;
 
 			// Returns whether or not the connection is active
 			bool IsConnected() const noexcept;
@@ -53,20 +62,29 @@ namespace BetteRCon
 			// Sends a packet to the server. Returns ErrorCode_t in ec on error
 			void SendPacket(const Packet& packet, ErrorCode_t& ec) noexcept;
 
-			// Receives a packet from the server. Throws ErrorCode_t on error
-			std::shared_ptr<Packet> RecvPacket(int32_t sequence);
-			// Receives a packet from the server. Returns ErrorCode_t in ec on error
-			std::shared_ptr<Packet> RecvPacket(int32_t sequence, ErrorCode_t& ec) noexcept;
+			// Receives a response from the server, with the specified sequence. Throws ErrorCode_t on error
+			std::shared_ptr<Packet> RecvResponse(const int32_t sequence);
+			// Receives a response from the server, with the specified sequence. Returns ErrorCode_t in ec on error
+			std::shared_ptr<Packet> RecvResponse(const int32_t sequence, ErrorCode_t& ec) noexcept;
 		private:
 			void CloseConnection();
 
 			void HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferred);
+			void HandleReadHeader(const ErrorCode_t& ec, const size_t bytes_transferred);
+			void HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transferred);
+
+			ErrorCode_t m_lastErrorCode;
+
+			bool m_connected;
 
 			std::vector<char> m_outgoingBuf;
 			std::vector<char> m_incomingBuf;
 
-			std::map<int32_t, Packet> m_incomingPackets;
-			std::mutex m_incomingPacketMutex;
+			std::map<int32_t, std::shared_ptr<Packet>> m_incomingResponses;
+			std::mutex m_incomingResponseMutex;
+
+			std::map<int32_t, std::shared_ptr<Packet>> m_incomingEvents;
+			std::mutex m_incomingEventMutex;
 
 			Socket_t m_socket;
 		};

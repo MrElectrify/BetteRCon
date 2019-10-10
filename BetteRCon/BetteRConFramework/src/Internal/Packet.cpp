@@ -2,6 +2,8 @@
 
 using BetteRCon::Internal::Packet;
 
+/*
+// This was removed because this responsibility of parsing commandLine will go to the connection or server layer to keep Packet small
 Packet::Packet(const std::string& command, const int32_t sequence) : m_sequence(sequence)
 {
 	size_t offset = 0;
@@ -90,7 +92,7 @@ Packet::Packet(const std::string& command, const int32_t sequence) : m_sequence(
 	// this is a request from the client
 	m_fromClient = true;
 	m_response = false;
-}
+}*/
 
 Packet::Packet(const std::vector<Word>& command, const int32_t sequence) : m_sequence(sequence)
 {
@@ -99,18 +101,17 @@ Packet::Packet(const std::vector<Word>& command, const int32_t sequence) : m_seq
 
 	for (auto commandPart : command)
 	{
-		// check for the null terminator
-		if (commandPart.size() == 0 ||
-			commandPart.back() != '\0')
-			commandPart += '\0';
-
 		// wordSize size
 		m_size += sizeof(int32_t);
-		m_size += commandPart.size();
+		// null terminator
+		m_size += commandPart.size() + sizeof(char);
 
 		// move the word into our local storage
 		m_words.emplace_back(std::move(commandPart));
 	}
+
+	m_fromServer = true;
+	m_response = false;
 }
 
 // assume the packet is the size that it says that it is, and that it is properly formed
@@ -123,7 +124,7 @@ Packet::Packet(const std::vector<char>& buf)
 	const auto sequence = *reinterpret_cast<const int32_t*>(&buf[offset]);
 	offset += sizeof(int32_t);
 
-	m_fromClient = (sequence >> 31) & 1;
+	m_fromServer = (sequence >> 31) & 1;
 	m_response = (sequence >> 30) & 1;
 
 	m_sequence = sequence & 0x3FFFFFFF;
@@ -142,18 +143,20 @@ Packet::Packet(const std::vector<char>& buf)
 		offset += sizeof(int32_t);
 		// capture the string
 		m_words.emplace_back(Word(&buf[offset], wordSize));
-		offset += wordSize;
+
+		// null terminator space
+		offset += wordSize + 1;
 	}
 }
 
-bool Packet::IsFromClient() const
+bool Packet::IsFromServer() const
 {
-	return m_fromClient;
+	return m_fromServer == true;
 }
 
 bool Packet::IsResponse() const
 {
-	return m_response;
+	return m_response == true;
 }
 
 int32_t Packet::GetSequence() const
@@ -179,7 +182,7 @@ void Packet::Serialize(std::vector<char>& bufOut) const
 	size_t offset = 0;
 
 	// write the sequence
-	*reinterpret_cast<int32_t*>(&bufOut[offset]) = (m_fromClient << 31) | (m_response << 30) | m_sequence;
+	*reinterpret_cast<int32_t*>(&bufOut[offset]) = (m_fromServer << 31) | (m_response << 30) | m_sequence;
 	offset += sizeof(int32_t);
 
 	// write the size
@@ -197,8 +200,10 @@ void Packet::Serialize(std::vector<char>& bufOut) const
 		*reinterpret_cast<int32_t*>(&bufOut[offset]) = word.size();
 		offset += sizeof(int32_t);
 
-		// write the word
+		// write the word and the null terminator
 		memcpy(&bufOut[offset], word.data(), word.size());
 		offset += word.size();
+		bufOut[offset] = '\0';
+		offset += sizeof(char);
 	}
 }

@@ -27,15 +27,13 @@ namespace BetteRCon
 			// Each word of a packet has a special format.
 			using Word = std::string;
 
-			// Creates a packet from predefined arguments, separated by spaces. Arguments with spaces must go in quotes
-			Packet(const std::string& command, const int32_t sequence);
 			// Creates a packet from a vector of arguments
 			Packet(const std::vector<Word>& command, const int32_t sequence);
 			// Creates a packet from a received buffer
 			Packet(const std::vector<char>& buf);
 
 			// Gets whether or not the packet was from the client
-			bool IsFromClient() const;
+			bool IsFromServer() const;
 			// Gets whether or not the packet was a response
 			bool IsResponse() const;
 			// Get the sequence of the packet
@@ -49,7 +47,7 @@ namespace BetteRCon
 			// Serializes the packet to a buffer
 			void Serialize(std::vector<char>& bufOut) const;
 		private:
-			bool m_fromClient;
+			bool m_fromServer;
 			bool m_response;
 			int32_t m_sequence;
 			int32_t m_size;
