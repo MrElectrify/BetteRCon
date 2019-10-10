@@ -10,7 +10,7 @@ using BetteRCon::Internal::Packet;
 
 int main(int argc, char* argv[])
 {
-	if (argc != 2 && argc != 3)
+	/*if (argc != 2 && argc != 3)
 	{
 		std::cout << "Usage: " << argv[0] << " [ip:string] [port:ushort:OPT]\n";
 		return 1;
@@ -35,10 +35,14 @@ int main(int argc, char* argv[])
 	{
 		std::cout << "Failed to connect: " << ec.message() << '\n';
 		return 1;
-	}
+	}*/
 
 	// make a packet
-	Packet p("testCommand arg1 \"arg 2\"");
+	Packet p("testCommand arg1 \"arg 2\" \"\"");
+
+	assert(p.GetWords().size() == 4);
+	assert(p.GetSequence() == 0);
+	assert(p.GetSize() == 48);
 
 	return 0;
 }
