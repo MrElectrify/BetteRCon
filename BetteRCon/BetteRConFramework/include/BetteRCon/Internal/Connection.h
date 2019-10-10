@@ -6,10 +6,17 @@
  *	10/9/19 13:22
  */
 
+// BetteRCon
+#include <BetteRCon/Internal/Packet.h>
+
 // ASIO
 #include <asio.hpp>
 
 // STL
+#include <condition_variable>
+#include <cstdint>
+#include <map>
+#include <mutex>
 #include <vector>
 
 namespace BetteRCon
@@ -37,7 +44,16 @@ namespace BetteRCon
 			void Connect(const Endpoint_t& endpoint);
 			// Attempts to connect to a remote server. Returns ErrorCode_t in ec on error
 			void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+
+			// Sends a command to the server. Throws ErrorCode_t on error
+			void SendCommand(const std::string& command);
+			// Sends a command to the server. Returns ErrorCode_t in ec on error.
+			void SendCommand(const std::string& command);
 		private:
+			std::map<int32_t, Packet> m_outgoingPackets;
+			std::condition_variable m_outgoingPacketConVar;
+			std::mutex m_outgoingPacketMutex;
+
 			Socket_t m_socket;
 		};
 	}
