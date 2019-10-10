@@ -1,8 +1,12 @@
 #include <BetteRCon/Server.h>
+#include <BetteRCon/Internal/Packet.h>
 
 #include <iostream>
+#include <string>
+#include <vector>
 
 using BetteRCon::Internal::Connection;
+using BetteRCon::Internal::Packet;
 
 int main(int argc, char* argv[])
 {
@@ -32,6 +36,9 @@ int main(int argc, char* argv[])
 		std::cout << "Failed to connect: " << ec.message() << '\n';
 		return 1;
 	}
+
+	// make a packet
+	Packet p("testCommand arg1 \"arg 2\"");
 
 	return 0;
 }
