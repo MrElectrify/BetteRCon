@@ -23,8 +23,9 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 			if (nextQuote == std::string::npos ||
 				nextQuote != offset)
 			{
-				m_words.push_back(command.substr(offset));
-				m_size += command.size() - offset;
+				// make sure that we add the null terminator for all words
+				m_words.push_back(command.substr(offset) + '\0');
+				m_size += command.size() - (offset + 1) + 1;
 			}
 			else
 			{
@@ -35,21 +36,21 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 					if (nextQuote == command.size() - 1)
 					{
 						// add the word between the quotes
-						m_words.push_back(command.substr(offset + 1, nextQuote - (offset + 1)));
-						m_size += nextQuote - (offset + 1);
+						m_words.push_back(command.substr(offset + 1, nextQuote - (offset + 1)) + '\0');
+						m_size += nextQuote - (offset + 1) + 1;
 					}
 					else
 					{
 						// just add the whole word
-						m_words.push_back(command.substr(offset));
-						m_size += command.size() - offset;
+						m_words.push_back(command.substr(offset) + '\0');
+						m_size += command.size() - offset + 1;
 					}
 				}
 				else
 				{
 					// add the rest of the word after the quote
-					m_words.push_back(command.substr(offset + 1));
-					m_size += command.size() - (offset + 1);
+					m_words.push_back(command.substr(offset + 1) + '\0');
+					m_size += command.size() - (offset + 1) + 1;
 				}
 			}
 			break;
@@ -62,8 +63,8 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 			if (nextQuote != offset)
 			{
 				// just add the word
-				m_words.push_back(command.substr(offset, nextSpace - offset));
-				m_size += nextSpace - offset;
+				m_words.push_back(command.substr(offset, nextSpace - offset) + '\0');
+				m_size += nextSpace - offset + 1;
 				offset = nextSpace + 1;
 				continue;
 			}
@@ -72,19 +73,19 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 			if (nextQuote == std::string::npos)
 			{
 				// we reached the end of the string without a matching quote. just add the rest of the string
-				m_words.push_back(command.substr(offset));
-				m_size += command.size() - offset;
+				m_words.push_back(command.substr(offset) + '\0');
+				m_size += command.size() - offset + 1;
 				break;
 			}
 			// we found the second quote. add the word
-			m_words.push_back(command.substr(offset + 1, nextQuote - (offset + 1)));
-			m_size += nextQuote - (offset + 1);
+			m_words.push_back(command.substr(offset + 1, nextQuote - (offset + 1)) + '\0');
+			m_size += nextQuote - (offset + 1) + 1;
 			offset = nextQuote + 2;
 			continue;
 		}
 		// we didn't find any quotes before the next space, add the word
-		m_words.push_back(command.substr(offset, nextSpace - offset));
-		m_size += nextSpace - offset;
+		m_words.push_back(command.substr(offset, nextSpace - offset) + '\0');
+		m_size += nextSpace - offset + 1;
 		offset = nextSpace + 1;
 	}
 
@@ -93,21 +94,33 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 	m_response = false;
 }
 
+Packet::Packet(const std::vector<Word>& command)
+{
+	// Sequence, Size, and NumWords
+	m_size = sizeof(int32_t) * 3;
+}
+
 // assume the packet is the size that it says that it is, and that it is properly formed
 /// TODO: Add some bounds checking and error handling
 Packet::Packet(const std::vector<char>& buf)
 {
+	size_t offset = 0;
+
 	// parse the packet
-	const auto sequence = *reinterpret_cast<const int32_t*>(&buf[0]);
+	const auto sequence = *reinterpret_cast<const int32_t*>(&buf[offset]);
+	offset += sizeof(int32_t);
 
 	m_fromClient = (sequence >> 31) & 1;
 	m_response = (sequence >> 30) & 1;
 
 	m_sequence = sequence & 0x3FFFFFFF;
 
-	const auto numWords = *reinterpret_cast<const int32_t*>(&buf[sizeof(int32_t) * 2]);
+	m_size = *reinterpret_cast<const int32_t*>(&buf[offset]);
+	offset += sizeof(int32_t);
 
-	size_t offset = sizeof(int32_t) * 3;
+	const auto numWords = *reinterpret_cast<const int32_t*>(&buf[sizeof(int32_t) * 2]);
+	offset += sizeof(int32_t);
+
 	// parse each word
 	for (int32_t i = 0; i < numWords; ++i)
 	{
@@ -143,4 +156,36 @@ int32_t Packet::GetSize() const
 std::vector<Packet::Word> Packet::GetWords() const
 {
 	return m_words;
+}
+
+void Packet::Serialize(std::vector<char>& bufOut) const
+{
+	// make space for our buffer
+	bufOut.resize(m_size);
+	
+	size_t offset = 0;
+
+	// write the sequence
+	*reinterpret_cast<int32_t*>(&bufOut[offset]) = (m_fromClient << 31) | (m_response << 30) | m_sequence;
+	offset += sizeof(int32_t);
+
+	// write the size
+	*reinterpret_cast<int32_t*>(&bufOut[offset]) = m_size;
+	offset += sizeof(int32_t);
+
+	// write the number of words
+	*reinterpret_cast<int32_t*>(&bufOut[offset]) = m_words.size();
+	offset += sizeof(int32_t);
+
+	// write the words
+	for (const auto& word : m_words)
+	{
+		// write word size
+		*reinterpret_cast<int32_t*>(&bufOut[offset]) = word.size();
+		offset += sizeof(int32_t);
+
+		// write the word
+		memcpy(&bufOut[offset], word.data(), word.size());
+		offset += word.size();
+	}
 }

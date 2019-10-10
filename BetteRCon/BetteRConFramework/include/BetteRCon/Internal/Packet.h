@@ -30,6 +30,8 @@ namespace BetteRCon
 
 			// Creates a packet from predefined arguments, separated by spaces. Arguments with spaces must go in quotes
 			Packet(const std::string& command);
+			// Creates a packet from a vector of arguments
+			Packet(const std::vector<Word>& command);
 			// Creates a packet from a received buffer
 			Packet(const std::vector<char>& buf);
 
@@ -46,7 +48,7 @@ namespace BetteRCon
 			std::vector<Word> GetWords() const;
 
 			// Serializes the packet to a buffer
-			void Serialize(std::vector<char>& bufOut);
+			void Serialize(std::vector<char>& bufOut) const;
 		private:
 			static std::atomic<int32_t> s_lastSequence;
 

@@ -42,7 +42,20 @@ int main(int argc, char* argv[])
 
 	assert(p.GetWords().size() == 4);
 	assert(p.GetSequence() == 0);
-	assert(p.GetSize() == 48);
+	assert(p.GetSize() == 52);
+
+	// serialize the packet to a buffer
+	std::vector<char> outBuf;
+	p.Serialize(outBuf);
+
+	assert(outBuf.size() == p.GetSize());
+
+	// deserialize the packet from the buffer
+	Packet r(outBuf);
+
+	assert(r.GetWords().size() == 4);
+	assert(r.GetSequence() == 0);
+	assert(r.GetSize() == 52);
 
 	return 0;
 }
