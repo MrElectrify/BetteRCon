@@ -57,5 +57,24 @@ int main(int argc, char* argv[])
 	assert(r.GetSequence() == 0);
 	assert(r.GetSize() == 52);
 
+	// make a packet from a vector of arguments
+	Packet v(std::vector<Packet::Word>{"testCommand", "arg1", "arg 2", ""});
+
+	assert(v.GetWords().size() == 4);
+	assert(v.GetSequence() == 1);
+	assert(v.GetSize() == 52);
+
+	std::vector<char> outBuf2;
+	v.Serialize(outBuf2);
+
+	assert(outBuf2.size() == v.GetSize());
+
+	Packet vr(outBuf2);
+
+	assert(vr.GetWords().size() == 4);
+	assert(vr.GetSequence() == 1);
+	assert(vr.GetSize() == 52);
+	assert(vr.GetWords() == p.GetWords());
+
 	return 0;
 }

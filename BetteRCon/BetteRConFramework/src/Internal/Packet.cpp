@@ -94,10 +94,25 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 	m_response = false;
 }
 
-Packet::Packet(const std::vector<Word>& command)
+Packet::Packet(const std::vector<Word>& command) : m_sequence(s_lastSequence++)
 {
 	// Sequence, Size, and NumWords
 	m_size = sizeof(int32_t) * 3;
+
+	for (auto commandPart : command)
+	{
+		// check for the null terminator
+		if (commandPart.size() == 0 ||
+			commandPart.back() != '\0')
+			commandPart += '\0';
+
+		// wordSize size
+		m_size += sizeof(int32_t);
+		m_size += commandPart.size();
+
+		// move the word into our local storage
+		m_words.emplace_back(std::move(commandPart));
+	}
 }
 
 // assume the packet is the size that it says that it is, and that it is properly formed
