@@ -7,7 +7,6 @@
  */
 
 // STL
-#include <atomic>
 #include <cstdint>
 #include <system_error>
 #include <string>
@@ -29,9 +28,9 @@ namespace BetteRCon
 			using Word = std::string;
 
 			// Creates a packet from predefined arguments, separated by spaces. Arguments with spaces must go in quotes
-			Packet(const std::string& command);
+			Packet(const std::string& command, const int32_t sequence);
 			// Creates a packet from a vector of arguments
-			Packet(const std::vector<Word>& command);
+			Packet(const std::vector<Word>& command, const int32_t sequence);
 			// Creates a packet from a received buffer
 			Packet(const std::vector<char>& buf);
 
@@ -50,8 +49,6 @@ namespace BetteRCon
 			// Serializes the packet to a buffer
 			void Serialize(std::vector<char>& bufOut) const;
 		private:
-			static std::atomic<int32_t> s_lastSequence;
-
 			bool m_fromClient;
 			bool m_response;
 			int32_t m_sequence;

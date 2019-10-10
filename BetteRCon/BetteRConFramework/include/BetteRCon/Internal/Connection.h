@@ -13,7 +13,6 @@
 #include <asio.hpp>
 
 // STL
-#include <condition_variable>
 #include <cstdint>
 #include <map>
 #include <mutex>
@@ -25,7 +24,8 @@ namespace BetteRCon
 	{
 		/*
 		 *	Connection is the raw connection to the server. It is callback based, and
-		 *	notifies the parent of any incoming data, or outgoing data.
+		 *	notifies the parent of any incoming data, or outgoing data. Sending and receiving
+		 *	data is not thread safe.
 		 */
 		class Connection
 		{
@@ -45,14 +45,28 @@ namespace BetteRCon
 			// Attempts to connect to a remote server. Returns ErrorCode_t in ec on error
 			void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
 
-			// Sends a command to the server. Throws ErrorCode_t on error
-			void SendCommand(const std::string& command);
-			// Sends a command to the server. Returns ErrorCode_t in ec on error.
-			void SendCommand(const std::string& command);
+			// Returns whether or not the connection is active
+			bool IsConnected() const noexcept;
+
+			// Sends a packet to the server. Throws ErrorCode_t on error
+			void SendPacket(const Packet& packet);
+			// Sends a packet to the server. Returns ErrorCode_t in ec on error
+			void SendPacket(const Packet& packet, ErrorCode_t& ec) noexcept;
+
+			// Receives a packet from the server. Throws ErrorCode_t on error
+			std::shared_ptr<Packet> RecvPacket(int32_t sequence);
+			// Receives a packet from the server. Returns ErrorCode_t in ec on error
+			std::shared_ptr<Packet> RecvPacket(int32_t sequence, ErrorCode_t& ec) noexcept;
 		private:
-			std::map<int32_t, Packet> m_outgoingPackets;
-			std::condition_variable m_outgoingPacketConVar;
-			std::mutex m_outgoingPacketMutex;
+			void CloseConnection();
+
+			void HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferred);
+
+			std::vector<char> m_outgoingBuf;
+			std::vector<char> m_incomingBuf;
+
+			std::map<int32_t, Packet> m_incomingPackets;
+			std::mutex m_incomingPacketMutex;
 
 			Socket_t m_socket;
 		};

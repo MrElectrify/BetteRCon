@@ -2,9 +2,7 @@
 
 using BetteRCon::Internal::Packet;
 
-std::atomic<int32_t> Packet::s_lastSequence = 0;
-
-Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
+Packet::Packet(const std::string& command, const int32_t sequence) : m_sequence(sequence)
 {
 	size_t offset = 0;
 	// Sequence, Size, and NumWords
@@ -94,7 +92,7 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 	m_response = false;
 }
 
-Packet::Packet(const std::vector<Word>& command) : m_sequence(s_lastSequence++)
+Packet::Packet(const std::vector<Word>& command, const int32_t sequence) : m_sequence(sequence)
 {
 	// Sequence, Size, and NumWords
 	m_size = sizeof(int32_t) * 3;
@@ -150,12 +148,12 @@ Packet::Packet(const std::vector<char>& buf)
 
 bool Packet::IsFromClient() const
 {
-	return m_fromClient == true;
+	return m_fromClient;
 }
 
 bool Packet::IsResponse() const
 {
-	return m_response == true;
+	return m_response;
 }
 
 int32_t Packet::GetSequence() const
