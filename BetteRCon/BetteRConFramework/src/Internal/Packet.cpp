@@ -93,9 +93,31 @@ Packet::Packet(const std::string& command) : m_sequence(s_lastSequence++)
 	m_response = false;
 }
 
+// assume the packet is the size that it says that it is, and that it is properly formed
+/// TODO: Add some bounds checking and error handling
 Packet::Packet(const std::vector<char>& buf)
 {
+	// parse the packet
+	const auto sequence = *reinterpret_cast<const int32_t*>(&buf[0]);
 
+	m_fromClient = (sequence >> 31) & 1;
+	m_response = (sequence >> 30) & 1;
+
+	m_sequence = sequence & 0x3FFFFFFF;
+
+	const auto numWords = *reinterpret_cast<const int32_t*>(&buf[sizeof(int32_t) * 2]);
+
+	size_t offset = sizeof(int32_t) * 3;
+	// parse each word
+	for (int32_t i = 0; i < numWords; ++i)
+	{
+		const auto wordSize = *reinterpret_cast<const int32_t*>(&buf[offset]);
+		
+		offset += sizeof(int32_t);
+		// capture the string
+		m_words.emplace_back(Word(&buf[offset], wordSize));
+		offset += wordSize;
+	}
 }
 
 bool Packet::IsFromClient() const

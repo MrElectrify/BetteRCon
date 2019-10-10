@@ -9,6 +9,7 @@
 // STL
 #include <atomic>
 #include <cstdint>
+#include <system_error>
 #include <string>
 #include <vector>
 
@@ -47,8 +48,6 @@ namespace BetteRCon
 			// Serializes the packet to a buffer
 			void Serialize(std::vector<char>& bufOut);
 		private:
-			void Deserialize(const std::vector<char>& buf);
-
 			static std::atomic<int32_t> s_lastSequence;
 
 			bool m_fromClient;
