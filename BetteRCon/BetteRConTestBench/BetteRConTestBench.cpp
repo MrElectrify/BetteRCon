@@ -12,19 +12,22 @@ using BetteRCon::Internal::Packet;
 
 std::condition_variable g_conVar;
 std::mutex g_mutex;
+bool g_loggedIn = false;
+bool g_loginComplete = false;
 bool g_responseReceived = false;
 
 int main(int argc, char* argv[])
 {
-	if (argc != 2 && argc != 3)
+	if (argc != 4)
 	{
-		std::cout << "Usage: " << argv[0] << " [ip:string] [port:ushort:OPT]\n";
+		std::cout << "Usage: " << argv[0] << " [ip:string] [port:ushort] [password:string]\n";
 		return 1;
 	}
 
 	// parse IP and port
 	char* ip = argv[1];
-	uint16_t port = (argc == 3) ? atoi(argv[2]) : 47200;
+	uint16_t port = atoi(argv[2]);
+	std::string password = argv[3];
 
 	{
 		Server server;
@@ -38,6 +41,36 @@ int main(int argc, char* argv[])
 		if (ec)
 		{
 			std::cout << "Failed to connect: " << ec.message() << '\n';
+			return 1;
+		}
+
+		server.Login(password, [&server](const Server::LoginResult loginRes)
+		{
+			// notify the main thread that we logged in
+			std::lock_guard lock(g_mutex);
+
+			if (loginRes != Server::LoginResult_OK)
+				std::cout << "Failed to login to server: " << loginRes << '\n';
+			else
+				g_loggedIn = true;
+
+			g_loginComplete = true;
+			g_conVar.notify_one();
+		});
+
+		{
+			// wait for the login response
+			std::unique_lock lock(g_mutex);
+			g_conVar.wait(lock, [] { return g_loginComplete == true; });
+		}
+
+		if (g_loggedIn == false)
+		{
+			std::cout << "Failed to login\n";
+
+			Server::ErrorCode_t ec;
+			server.Disconnect(ec);
+
 			return 1;
 		}
 
@@ -88,9 +121,11 @@ int main(int argc, char* argv[])
 			}
 		});
 
-		// wait for the response
-		std::unique_lock lock(g_mutex);
-		g_conVar.wait(lock, [] { return g_responseReceived == true; });
+		{
+			// wait for the response
+			std::unique_lock lock(g_mutex);
+			g_conVar.wait(lock, [] { return g_responseReceived == true; });
+		}
 
 		if (auto e = server.GetLastErrorCode())
 		{

@@ -24,9 +24,18 @@ namespace BetteRCon
 	class Server
 	{
 	public:
+		enum LoginResult
+		{
+			LoginResult_OK,					// Success
+			LoginResult_PasswordNotSet,		// Password was not set by the server
+			LoginResult_InvalidPasswordHash,// Password was incorrect
+			LoginResult_Unknown				// Socket-related error, or unknown response. More information can be retreived by GetLastErrorCode()
+		};
+
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
+		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
 		using Worker_t = Connection_t::Worker_t;
@@ -37,6 +46,9 @@ namespace BetteRCon
 		void Connect(const Endpoint_t& endpoint);
 		// Attempts to connect to a server. Returns ErrorCode_t in on error
 		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+
+		// Attempts to login to the server using a hashed password. Calls loginCallback on completion with the result
+		void Login(const std::string& password, LoginCallback_t&& loginCallback);
 
 		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
 		void Disconnect();
@@ -56,7 +68,9 @@ namespace BetteRCon
 		~Server();
 	private:
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
-		
+		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
+		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
+
 		void MainLoop();
 
 		static int32_t s_lastSequence;

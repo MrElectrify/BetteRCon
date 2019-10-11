@@ -1,4 +1,5 @@
 #include <BetteRCon/Server.h>
+#include <BetteRCon/Internal/MD5.h>
 
 using BetteRCon::Server;
 
@@ -25,13 +26,7 @@ void Server::Connect(const Endpoint_t& endpoint)
 	m_connection.Connect(endpoint);
 
 	// we are successfully connected. start the worker thread
-	m_thread = std::thread([this]
-	{
-		// add the main loop to the queue
-		m_worker.post(std::bind(&Server::MainLoop, this));
-
-		m_worker.run();
-	});
+	m_thread = std::thread(std::bind(static_cast<size_t(Worker_t::*)()>(&Worker_t::run), &m_worker));
 }
 
 void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
@@ -44,6 +39,14 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	{
 		ec = e;
 	}
+}
+
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback)
+{
+	// send the login request
+	SendCommand({ "login.hashed" }, 
+		std::bind(&Server::HandleLoginRecvHash, this,
+			std::placeholders::_1, std::placeholders::_2, password, loginCallback));
 }
 
 void Server::Disconnect()
@@ -89,7 +92,9 @@ Server::~Server()
 	ErrorCode_t ec;
 	m_connection.Disconnect(ec);
 
-	m_thread.join();
+	// wait for the thread
+	if (m_thread.joinable() == true)
+		m_thread.join();
 }
 
 void Server::HandleEvent(const ErrorCode_t&, std::shared_ptr<Packet_t> event)
@@ -97,7 +102,73 @@ void Server::HandleEvent(const ErrorCode_t&, std::shared_ptr<Packet_t> event)
 	// unimplemented
 }
 
+void Server::HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback)
+{
+	// we disconnected or something. 
+	if (ec)
+		return loginCallback(LoginResult_Unknown);
+
+	// did we get an OK?
+	if (response.at(0) == "OK")
+	{
+		// decode the salt into bytes
+		const auto& saltHex = response.at(1);
+		std::string salt;
+
+		for (size_t i = 0; i < saltHex.size(); i += 2)
+		{
+			auto byte = static_cast<char>(stoi(saltHex.substr(i, 2), nullptr, 16));
+			salt.push_back(byte);
+		}
+
+		// md5 the password appended to salt
+		auto hashResult = MD5(salt + password).hexdigest();
+
+		// send the hashed password
+		SendCommand({ "login.hashed", hashResult }, 
+			std::bind(&Server::HandleLoginRecvResponse, this, 
+				std::placeholders::_1, std::placeholders::_2, loginCallback));
+	}
+	else if (response.at(0) == "PasswordNotSet")
+	{
+		// server did not set a password
+		return loginCallback(LoginResult_PasswordNotSet);
+	}
+	else
+	{
+		// something strange happened
+		return loginCallback(LoginResult_Unknown);
+	}
+}
+
+void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback)
+{
+	// we disconnected or something. 
+	if (ec)
+		return loginCallback(LoginResult_Unknown);
+
+	// did we get an OK?
+	if (response.at(0) == "OK")
+	{
+		// login is successful. start the main loop
+		m_worker.post(std::bind(&Server::MainLoop, this));
+
+		// call the login callback
+		return loginCallback(LoginResult_OK);
+	}
+	else if (response.at(0) == "InvalidPasswordHash")
+	{
+		// invalid password
+		return loginCallback(LoginResult_InvalidPasswordHash);
+	}
+	else
+	{
+		// something strange happened
+		return loginCallback(LoginResult_Unknown);
+	}
+}
+
 void Server::MainLoop()
 {
-	// unimplemented
+	
 }

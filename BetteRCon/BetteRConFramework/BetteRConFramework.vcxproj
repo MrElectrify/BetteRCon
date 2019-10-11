@@ -154,12 +154,14 @@
   <ItemGroup>
     <ClInclude Include="include\BetteRCon\Internal\Connection.h" />
     <ClInclude Include="include\BetteRCon\Internal\ErrorCode.h" />
+    <ClInclude Include="include\BetteRCon\Internal\MD5.h" />
     <ClInclude Include="include\BetteRCon\Internal\Packet.h" />
     <ClInclude Include="include\BetteRCon\Server.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Internal\Connection.cpp" />
     <ClCompile Include="src\Internal\ErrorCode.cpp" />
+    <ClCompile Include="src\Internal\MD5.cpp" />
     <ClCompile Include="src\Internal\Packet.cpp" />
     <ClCompile Include="src\Server.cpp" />
   </ItemGroup>
