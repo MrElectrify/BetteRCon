@@ -24,8 +24,27 @@ namespace BetteRCon
 	class Server
 	{
 	public:
+		using Connection_t = Internal::Connection;
+		using Endpoint_t = Connection_t::Endpoint_t;
+		using ErrorCode_t = Connection_t::ErrorCode_t;
+		using Packet_t = Internal::Packet;
+		using Worker_t = Connection_t::Worker_t;
+		// Default constructor. Creates thread
 		Server();
+
+		// Attempts to connect to a server. Throws ErrorCode_t on error
+		void Connect(const Endpoint_t& endpoint);
+		// Attempts to connect to a server. Returns ErrorCode_t in on error
+		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+
+		~Server();
 	private:
+		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
+		
+		void MainLoop();
+
+		Worker_t m_worker;
+		Connection_t m_connection;
 		std::thread m_thread;
 	};
 }

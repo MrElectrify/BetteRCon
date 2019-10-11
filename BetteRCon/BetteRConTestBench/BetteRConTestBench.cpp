@@ -1,12 +1,11 @@
 #include <BetteRCon/Server.h>
-#include <BetteRCon/Internal/Packet.h>
 
 #include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
 
-using BetteRCon::Internal::Connection;
+using BetteRCon::Server;
 using BetteRCon::Internal::Packet;
 
 int main(int argc, char* argv[])
@@ -21,52 +20,51 @@ int main(int argc, char* argv[])
 	char* ip = argv[1];
 	uint16_t port = (argc == 3) ? atoi(argv[2]) : 47200;
 
-	// we need a worker
-	Connection::Worker_t worker;
-
-	Connection conn(worker, [](const Connection::ErrorCode_t&, std::shared_ptr<Packet>) {});
-
-	// try to connect
-	Connection::Endpoint_t endpoint(asio::ip::make_address_v4(ip), port);
-	Connection::ErrorCode_t ec;
-	
-	conn.Connect(endpoint, ec);
-
-	if (ec)
 	{
-		std::cout << "Failed to connect: " << ec.message() << '\n';
-		return 1;
-	}
+		Server server;
 
-	// create the serverInfo request
-	Packet serverInfoRequest({ "serverInfo" }, 0);
+		// try to connect
+		Server::Endpoint_t endpoint(asio::ip::make_address_v4(ip), port);
+		Server::ErrorCode_t ec;
 
-	// send the serverInfo request
-	conn.SendPacket(serverInfoRequest, [&conn] (const Connection::ErrorCode_t& ec, std::shared_ptr<Packet> pPacket)
-	{
+		server.Connect(endpoint, ec);
+
 		if (ec)
 		{
-			std::cout << "Error receiving response: " << ec.message() << '\n';
-			return;
+			std::cout << "Failed to connect: " << ec.message() << '\n';
+			return 1;
 		}
 
-		// we got the packet. print the response
-		std::cout << "Response: ";
-		for (const auto& word : pPacket->GetWords())
+		// create the serverInfo request
+		Packet serverInfoRequest({ "serverInfo" }, 0);
+
+		// send the serverInfo request
+		/*conn.SendPacket(serverInfoRequest, [&conn] (const Connection::ErrorCode_t& ec, const std::vector<std::string>& words)
 		{
-			std::cout << word << ' ';
-		}
-		std::cout << '\n';
+			if (ec)
+			{
+				std::cout << "Error receiving response: " << ec.message() << '\n';
+				return;
+			}
 
-		// close the connection
-		conn.Disconnect();
-	});
+			// we got the packet. print the response
+			std::cout << "Response: ";
+			for (const auto& word : words)
+			{
+				std::cout << word << ' ';
+			}
+			std::cout << '\n';
 
-	worker.run();
+			// close the connection
+			conn.Disconnect();
+		});*/
 
-	if (auto e = conn.GetLastErrorCode())
-	{
-		std::cout << "Error on exit: " << e.message() << '\n';
+		//worker.run();
+
+		/*if (auto e = conn.GetLastErrorCode())
+		{
+			std::cout << "Error on exit: " << e.message() << '\n';
+		}*/
 	}
 
 	std::cout << "Testing complete\n";
