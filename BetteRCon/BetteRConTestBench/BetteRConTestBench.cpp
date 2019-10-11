@@ -10,6 +10,10 @@
 using BetteRCon::Server;
 using BetteRCon::Internal::Packet;
 
+std::condition_variable g_conVar;
+std::mutex g_mutex;
+bool g_responseReceived = false;
+
 int main(int argc, char* argv[])
 {
 	if (argc != 2 && argc != 3)
@@ -37,11 +41,8 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
-		// create the serverInfo request
-		Packet serverInfoRequest({ "serverInfo" }, 0);
-
 		// send the serverInfo request
-		/*conn.SendPacket(serverInfoRequest, [&conn] (const Connection::ErrorCode_t& ec, const std::vector<std::string>& words)
+		server.SendCommand({ "serverInfo" }, [&server] (const Server::ErrorCode_t& ec, const std::vector<std::string>& words)
 		{
 			if (ec)
 			{
@@ -57,16 +58,44 @@ int main(int argc, char* argv[])
 			}
 			std::cout << '\n';
 
+			// make sure we got an whole response
+			assert(words.size() == 26);
+
+			// make sure the response is OK
+			assert(words.at(0) == "OK");
+
+			// extract some data as a test
+			const auto serverName = words.at(1);
+			const auto playerCount = std::stoi(words.at(2));
+			const auto maxPlayerCount = std::stoi(words.at(3));
+			const auto currentMap = words.at(5);
+			const auto currentGamemode = words.at(4);
+
+			// output our test data
+			std::cout << "Server Name: " << serverName << '\n';
+			std::cout << "Players: " << playerCount << " / " << maxPlayerCount << '\n';
+			std::cout << "Map: " << currentMap << '\n';
+			std::cout << "Gamemode: " << currentGamemode << '\n';
+
 			// close the connection
-			conn.Disconnect();
-		});*/
+			server.Disconnect();
 
-		//worker.run();
+			// notify the main thread that we got our result
+			{
+				std::lock_guard lock(g_mutex);
+				g_responseReceived = true;
+				g_conVar.notify_one();
+			}
+		});
 
-		/*if (auto e = conn.GetLastErrorCode())
+		// wait for the response
+		std::unique_lock lock(g_mutex);
+		g_conVar.wait(lock, [] { return g_responseReceived == true; });
+
+		if (auto e = server.GetLastErrorCode())
 		{
 			std::cout << "Error on exit: " << e.message() << '\n';
-		}*/
+		}
 	}
 
 	std::cout << "Testing complete\n";

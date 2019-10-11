@@ -149,7 +149,19 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	m_timeoutTimer.async_wait(std::bind(&Connection::HandleTimeout, this, std::placeholders::_1));
 
 	// parse the packet
-	auto receivedPacket = std::make_shared<Packet>(m_incomingBuf);
+	std::shared_ptr<Packet> receivedPacket;
+	
+	try
+	{
+		receivedPacket = std::make_shared<Packet>(m_incomingBuf);
+	}
+	catch (const Packet::ErrorCode_t& ec)
+	{
+		// we got a bad packet. disconnect
+		m_lastErrorCode = asio::error::make_error_code(asio::error::invalid_argument);
+		CloseConnection();
+		return;
+	}
 
 	// is this a response or an event?
 	if (receivedPacket->IsResponse() == true)

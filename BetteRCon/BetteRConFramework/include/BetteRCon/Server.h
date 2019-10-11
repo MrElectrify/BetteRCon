@@ -38,10 +38,19 @@ namespace BetteRCon
 		// Attempts to connect to a server. Returns ErrorCode_t in on error
 		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
 
+		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
+		void Disconnect();
+		// Attempts to disconnect from an active server. Returns ErrorCode_t in ec error
+		void Disconnect(ErrorCode_t& ec) noexcept;
+
 		// Returns whether or not we are connected
 		bool IsConnected() const noexcept;
 
-		// Attempts to send a command to the server, and calls recvCallback when the response is received
+		// Gets the last error code, which will tell why the server disconnected if it did
+		ErrorCode_t GetLastErrorCode() const noexcept;
+
+		// Attempts to send a command to the server, and calls recvCallback when the response is received.
+		// RecvCallback_t must not block, as it is called from the worker thread
 		void SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback);
 
 		~Server();
@@ -49,6 +58,8 @@ namespace BetteRCon
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
 		
 		void MainLoop();
+
+		static int32_t s_lastSequence;
 
 		Worker_t m_worker;
 		Connection_t m_connection;
