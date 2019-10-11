@@ -6,6 +6,9 @@
  *	10/9/19 16:07
  */
 
+// BetteRCon
+#include <BetteRCon/Internal/ErrorCode.h>
+
 // STL
 #include <cstdint>
 #include <system_error>
@@ -24,12 +27,13 @@ namespace BetteRCon
 		class Packet
 		{
 		public:
+			using ErrorCode_t = error_code;
 			// Each word of a packet has a special format.
 			using Word = std::string;
 
 			// Creates a packet from a vector of arguments
 			Packet(const std::vector<Word>& command, const int32_t sequence, bool response = false);
-			// Creates a packet from a received buffer
+			// Creates a packet from a received buffer. Throws ErrorCode_t on error	
 			Packet(const std::vector<char>& buf);
 
 			// Gets whether or not the packet was from the client

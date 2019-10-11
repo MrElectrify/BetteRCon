@@ -25,6 +25,7 @@ Packet::Packet(const std::vector<Word>& command, const int32_t sequence, bool re
 /// TODO: Add some bounds checking and error handling
 Packet::Packet(const std::vector<char>& buf)
 {
+	// our networking design guarantees we at least have the first 8 bytes. make sure we have more
 	size_t offset = 0;
 
 	// parse the packet
@@ -38,6 +39,8 @@ Packet::Packet(const std::vector<char>& buf)
 
 	m_size = *reinterpret_cast<const int32_t*>(&buf[offset]);
 	offset += sizeof(int32_t);
+
+	// make sure we have the space
 
 	const auto numWords = *reinterpret_cast<const int32_t*>(&buf[sizeof(int32_t) * 2]);
 	offset += sizeof(int32_t);
