@@ -21,8 +21,6 @@ Packet::Packet(const std::vector<Word>& command, const int32_t sequence, bool re
 	m_fromServer = true;
 }
 
-// assume the packet is the size that it says that it is, and that it is properly formed
-/// TODO: Add some bounds checking and error handling
 Packet::Packet(const std::vector<char>& buf)
 {
 	// our networking design guarantees we at least have the first 8 bytes. make sure we have more
@@ -38,9 +36,16 @@ Packet::Packet(const std::vector<char>& buf)
 	m_sequence = sequence & 0x3FFFFFFF;
 
 	m_size = *reinterpret_cast<const int32_t*>(&buf[offset]);
+
+	// make sure the size is not too large
+	if (m_size > 16384)
+		throw make_error_condition(errc::packet_malformed);
+
 	offset += sizeof(int32_t);
 
 	// make sure we have the space
+	if (buf.size() < sizeof(int32_t) * 3)
+		throw make_error_condition(errc::packet_too_small);
 
 	const auto numWords = *reinterpret_cast<const int32_t*>(&buf[sizeof(int32_t) * 2]);
 	offset += sizeof(int32_t);
@@ -48,11 +53,23 @@ Packet::Packet(const std::vector<char>& buf)
 	// parse each word
 	for (int32_t i = 0; i < numWords; ++i)
 	{
+		// make sure the packet is large enough
+		if (buf.size() < offset + sizeof(int32_t))
+			throw make_error_condition(errc::packet_too_small);
+
 		const auto wordSize = *reinterpret_cast<const int32_t*>(&buf[offset]);
+
+		// make sure there is enough buffer for the word
+		if (buf.size() < offset + sizeof(int32_t) + wordSize + 1)
+			throw make_error_condition(errc::packet_too_small);
 		
 		offset += sizeof(int32_t);
 		// capture the string
 		m_words.emplace_back(Word(&buf[offset], wordSize));
+
+		// check for a null terminator
+		if (buf[offset + wordSize] != '\0')
+			throw make_error_condition(errc::packet_malformed);
 
 		// null terminator space
 		offset += wordSize + 1;
