@@ -50,7 +50,13 @@ int main(int argc, char* argv[])
 			std::lock_guard lock(g_mutex);
 
 			if (loginRes != Server::LoginResult_OK)
+			{
 				std::cout << "Failed to login to server: " << loginRes << '\n';
+
+				// we don't care about the result, just disconnect
+				Server::ErrorCode_t ec;
+				server.Disconnect(ec);
+			}
 			else
 				g_loggedIn = true;
 
@@ -67,10 +73,6 @@ int main(int argc, char* argv[])
 		if (g_loggedIn == false)
 		{
 			std::cout << "Failed to login\n";
-
-			Server::ErrorCode_t ec;
-			server.Disconnect(ec);
-
 			return 1;
 		}
 
