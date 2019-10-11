@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 	// we need a worker
 	Connection::Worker_t worker;
 
-	Connection conn(worker);
+	Connection conn(worker, [](const Connection::ErrorCode_t&, std::shared_ptr<Packet>) {});
 
 	// try to connect
 	Connection::Endpoint_t endpoint(asio::ip::make_address_v4(ip), port);
@@ -38,46 +38,15 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-
 	// create the serverInfo request
 	Packet serverInfoRequest({ "serverInfo" }, 0);
 
 	// send the serverInfo request
-	conn.SendPacket(serverInfoRequest);
-
-	if (ec)
+	conn.SendPacket(serverInfoRequest, [&conn] (const Connection::ErrorCode_t& ec, std::shared_ptr<Packet> pPacket)
 	{
-		if (ec == asio::error::not_connected)
-		{
-			// we are not connected. fetch the error
-			ec = conn.GetLastErrorCode();
-		}
-		std::cout << "Failed to send packet: " << ec.message() << '\n';
-		return 1;
-	}
-
-	std::function<void()> job = [&conn, &job, &worker]() -> void
-	{
-		Connection::ErrorCode_t ec;
-
-		// wait for the packet to arrive
-		auto pPacket = conn.RecvResponse(0, ec);
-
 		if (ec)
 		{
-			if (ec == asio::error::not_connected)
-			{
-				// we are not connected. fetch the error
-				ec = conn.GetLastErrorCode();
-			}
-			std::cout << "Failed to send packet: " << ec.message() << '\n';
-			return;
-		}
-
-		if (pPacket == nullptr)
-		{
-			// add the job again
-			worker.post(job);
+			std::cout << "Error receiving response: " << ec.message() << '\n';
 			return;
 		}
 
@@ -91,9 +60,7 @@ int main(int argc, char* argv[])
 
 		// close the connection
 		conn.Disconnect();
-	};
-
-	worker.post(job);
+	});
 
 	worker.run();
 

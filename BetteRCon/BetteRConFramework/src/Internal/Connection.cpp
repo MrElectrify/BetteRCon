@@ -1,11 +1,9 @@
 #include <BetteRCon/Internal/Connection.h>
 
-#include <iostream>
-
 using BetteRCon::Internal::Connection;
 using BetteRCon::Internal::Packet;
 
-Connection::Connection(Worker_t& worker) : m_socket(worker) {}
+Connection::Connection(Worker_t& worker, RecvCallback_t&& eventCallback) : m_connected(false), m_eventCallback(eventCallback), m_socket(worker), m_timeoutTimer(worker) {}
 
 void Connection::Connect(const Endpoint_t& endpoint)
 {
@@ -16,6 +14,8 @@ void Connection::Connect(const Endpoint_t& endpoint)
 	// we failed to connect
 	if (ec)
 		throw ec;
+
+	m_connected = true;
 
 	// read the first 8 bytes from the socket, which will include the size of the packet
 	m_incomingBuf.resize(sizeof(int32_t) * 2);
@@ -69,68 +69,22 @@ bool Connection::IsConnected() const noexcept
 	return m_connected == true;
 }
 
-void Connection::SendPacket(const Packet& packet)
+void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 {
 	// make sure we are connected
 	if (IsConnected() == false)
-		throw asio::error::make_error_code(asio::error::not_connected);
+		return callback(asio::error::make_error_code(asio::error::not_connected), nullptr);
 
 	// serialize the data into our buffer
 	packet.Serialize(m_outgoingBuf);
 
+	// save the callback
+	m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
+
 	// write the data to the socket
-	asio::async_write(m_socket, asio::buffer(m_outgoingBuf), 
+	asio::async_write(m_socket, asio::buffer(m_outgoingBuf),
 		std::bind(&Connection::HandleWrite, this,
 			std::placeholders::_1, std::placeholders::_2));
-}
-
-void Connection::SendPacket(const Packet& packet, ErrorCode_t& ec) noexcept
-{
-	try
-	{
-		SendPacket(packet);
-	}
-	catch (const ErrorCode_t& e)
-	{
-		ec = e;
-	}
-}
-
-std::shared_ptr<Packet> Connection::RecvResponse(const int32_t sequence)
-{
-	// make sure we are connected
-	if (IsConnected() == false)
-		throw asio::error::make_error_code(asio::error::not_connected);
-
-	// search for the packet
-	{
-		std::lock_guard responseGuard(m_incomingResponseMutex);
-
-		auto responseIt =  m_incomingResponses.find(sequence);
-		if (responseIt != m_incomingResponses.end())
-		{
-			// we found the response, remove it and return it
-			auto pResponse = responseIt->second;
-
-			m_incomingResponses.erase(responseIt);
-
-			return pResponse;
-		}
-	}
-	return nullptr;
-}
-
-std::shared_ptr<Packet> Connection::RecvResponse(const int32_t sequence, ErrorCode_t& ec) noexcept
-{
-	try
-	{
-		return RecvResponse(sequence);
-	}
-	catch (const ErrorCode_t& e)
-	{
-		ec = e;
-		return nullptr;
-	}
 }
 
 void Connection::CloseConnection()
@@ -187,19 +141,23 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	// is this a response or an event?
 	if (receivedPacket->IsResponse() == true)
 	{
-		// this is a response. place it with the other responses
-		std::lock_guard responseGuard(m_incomingResponseMutex);
+		// return the response to the caller
+		auto callbackFn = m_recvCallbacks.find(receivedPacket->GetSequence());
+		if (callbackFn == m_recvCallbacks.end())
+		{
+			// this should not happen. abort
+			CloseConnection();
+			m_lastErrorCode = asio::error::make_error_code(asio::error::service_not_found);
+			return;
+		}
 
-		// move the packet
-		m_incomingResponses.emplace(receivedPacket->GetSequence(), std::move(receivedPacket));
+		// call the callback
+		callbackFn->second(ErrorCode_t{}, receivedPacket);
 	}
 	else
 	{
-		// this is an event. place it with the other events
-		std::lock_guard eventGuard(m_incomingEventMutex);
-
 		// move the event
-		m_incomingEvents.emplace(receivedPacket->GetSequence(), std::move(receivedPacket));
+		m_eventCallback(ErrorCode_t{}, receivedPacket);
 	}
 
 	// read the first 8 bytes from the socket, which will include the size of the packet
@@ -208,6 +166,11 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	asio::async_read(m_socket, asio::buffer(m_incomingBuf),
 		std::bind(&Connection::HandleReadHeader, this,
 			std::placeholders::_1, std::placeholders::_2));
+}
+
+void Connection::HandleTimeout(const ErrorCode_t& ec)
+{
+
 }
 
 void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferred)
