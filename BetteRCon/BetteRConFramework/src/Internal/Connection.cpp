@@ -17,6 +17,10 @@ void Connection::Connect(const Endpoint_t& endpoint)
 
 	m_connected = true;
 
+	// start the 2-minute connection timeout
+	m_timeoutTimer.expires_from_now(std::chrono::minutes(2));
+	m_timeoutTimer.async_wait(std::bind(&Connection::HandleTimeout, this, std::placeholders::_1));
+
 	// read the first 8 bytes from the socket, which will include the size of the packet
 	m_incomingBuf.resize(sizeof(int32_t) * 2);
 
@@ -91,11 +95,14 @@ void Connection::CloseConnection()
 {
 	ErrorCode_t ec;
 
+	m_connected = false;
+
 	// close the connection
 	m_socket.shutdown(asio::socket_base::shutdown_both, ec);
 	m_socket.close(ec);
 
-	m_connected = false;
+	// cancel the timer
+	m_timeoutTimer.cancel(ec);
 }
 
 void Connection::HandleReadHeader(const ErrorCode_t& ec, const size_t bytes_transferred)
@@ -103,7 +110,8 @@ void Connection::HandleReadHeader(const ErrorCode_t& ec, const size_t bytes_tran
 	if (ec)
 	{
 		// store the error code if it is not the result of a cancelled operation
-		if (ec != asio::error::operation_aborted)
+		if (ec != asio::error::operation_aborted &&
+			m_connected == true)
 		{
 			m_lastErrorCode = ec;
 			CloseConnection();
@@ -127,13 +135,18 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	if (ec)
 	{
 		// store the error code if it is not the result of a cancelled operation
-		if (ec != asio::error::operation_aborted)
+		if (ec != asio::error::operation_aborted &&
+			m_connected == true)
 		{
 			m_lastErrorCode = ec;
 			CloseConnection();
 		}
 		return;
 	}
+
+	// start the 2-minute connection timeout
+	m_timeoutTimer.expires_from_now(std::chrono::minutes(2));
+	m_timeoutTimer.async_wait(std::bind(&Connection::HandleTimeout, this, std::placeholders::_1));
 
 	// parse the packet
 	auto receivedPacket = std::make_shared<Packet>(m_incomingBuf);
@@ -170,7 +183,13 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 
 void Connection::HandleTimeout(const ErrorCode_t& ec)
 {
+	// we reset the timer
+	if (ec == asio::error::operation_aborted)
+		return;
 
+	// 2 minutes have passed since we got a transmission from them. assume they are frozen, shutdown
+	m_lastErrorCode = asio::error::make_error_code(asio::error::timed_out);
+	CloseConnection();
 }
 
 void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferred)
@@ -178,7 +197,8 @@ void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferr
 	if (ec)
 	{
 		// store the error code if it is not the result of a cancelled operation
-		if (ec != asio::error::operation_aborted)
+		if (ec != asio::error::operation_aborted && 
+			m_connected == true)
 		{
 			m_lastErrorCode = ec;
 			CloseConnection();

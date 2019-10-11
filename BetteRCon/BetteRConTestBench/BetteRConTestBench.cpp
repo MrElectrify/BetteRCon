@@ -64,6 +64,11 @@ int main(int argc, char* argv[])
 
 	worker.run();
 
+	if (auto e = conn.GetLastErrorCode())
+	{
+		std::cout << "Error on exit: " << e.message() << '\n';
+	}
+
 	std::cout << "Testing complete\n";
 
 	return 0;
