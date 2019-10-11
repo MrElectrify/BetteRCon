@@ -28,7 +28,7 @@ namespace BetteRCon
 			using Word = std::string;
 
 			// Creates a packet from a vector of arguments
-			Packet(const std::vector<Word>& command, const int32_t sequence);
+			Packet(const std::vector<Word>& command, const int32_t sequence, bool response = false);
 			// Creates a packet from a received buffer
 			Packet(const std::vector<char>& buf);
 

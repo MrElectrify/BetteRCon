@@ -2,99 +2,7 @@
 
 using BetteRCon::Internal::Packet;
 
-/*
-// This was removed because this responsibility of parsing commandLine will go to the connection or server layer to keep Packet small
-Packet::Packet(const std::string& command, const int32_t sequence) : m_sequence(sequence)
-{
-	size_t offset = 0;
-	// Sequence, Size, and NumWords
-	m_size = sizeof(int32_t) * 3;
-	while (offset < command.size() - 1)
-	{
-		// size of word
-		m_size += sizeof(int32_t);
-
-		// parse the commandLine
-		auto nextSpace = command.find(' ', offset);
-		if (nextSpace == std::string::npos)
-		{
-			// we reached the end of the string. send it all if there is not a quote
-			auto nextQuote = command.find('\"', offset);
-			if (nextQuote == std::string::npos ||
-				nextQuote != offset)
-			{
-				// make sure that we add the null terminator for all words
-				m_words.push_back(command.substr(offset) + '\0');
-				m_size += command.size() - (offset + 1) + 1;
-			}
-			else
-			{
-				nextQuote = command.find('\"', offset + 1);
-				if (nextQuote != std::string::npos)
-				{
-					// there is a quoted word, check if it is the last character
-					if (nextQuote == command.size() - 1)
-					{
-						// add the word between the quotes
-						m_words.push_back(command.substr(offset + 1, nextQuote - (offset + 1)) + '\0');
-						m_size += nextQuote - (offset + 1) + 1;
-					}
-					else
-					{
-						// just add the whole word
-						m_words.push_back(command.substr(offset) + '\0');
-						m_size += command.size() - offset + 1;
-					}
-				}
-				else
-				{
-					// add the rest of the word after the quote
-					m_words.push_back(command.substr(offset + 1) + '\0');
-					m_size += command.size() - (offset + 1) + 1;
-				}
-			}
-			break;
-		}
-		// check for quotes
-		auto nextQuote = command.find('\"', offset);
-		if (nextQuote < nextSpace)
-		{
-			// the next quote is before the next space, check if it is in the first position
-			if (nextQuote != offset)
-			{
-				// just add the word
-				m_words.push_back(command.substr(offset, nextSpace - offset) + '\0');
-				m_size += nextSpace - offset + 1;
-				offset = nextSpace + 1;
-				continue;
-			}
-			// find the next quote after
-			nextQuote = command.find('\"', offset + 1);
-			if (nextQuote == std::string::npos)
-			{
-				// we reached the end of the string without a matching quote. just add the rest of the string
-				m_words.push_back(command.substr(offset) + '\0');
-				m_size += command.size() - offset + 1;
-				break;
-			}
-			// we found the second quote. add the word
-			m_words.push_back(command.substr(offset + 1, nextQuote - (offset + 1)) + '\0');
-			m_size += nextQuote - (offset + 1) + 1;
-			offset = nextQuote + 2;
-			continue;
-		}
-		// we didn't find any quotes before the next space, add the word
-		m_words.push_back(command.substr(offset, nextSpace - offset) + '\0');
-		m_size += nextSpace - offset + 1;
-		offset = nextSpace + 1;
-	}
-
-	// this is a request from the client
-	m_fromClient = true;
-	m_response = false;
-}*/
-
-Packet::Packet(const std::vector<Word>& command, const int32_t sequence) : m_sequence(sequence)
+Packet::Packet(const std::vector<Word>& command, const int32_t sequence, bool response) : m_response(response), m_sequence(sequence)
 {
 	// Sequence, Size, and NumWords
 	m_size = sizeof(int32_t) * 3;
@@ -111,7 +19,6 @@ Packet::Packet(const std::vector<Word>& command, const int32_t sequence) : m_seq
 	}
 
 	m_fromServer = true;
-	m_response = false;
 }
 
 // assume the packet is the size that it says that it is, and that it is properly formed

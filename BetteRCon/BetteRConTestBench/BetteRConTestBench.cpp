@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 		std::cout << "Response: ";
 		for (const auto& word : pPacket->GetWords())
 		{
-			std::cout << word << ':';
+			std::cout << word << ' ';
 		}
 		std::cout << '\n';
 

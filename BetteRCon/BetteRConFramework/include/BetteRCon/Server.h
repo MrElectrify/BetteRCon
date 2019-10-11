@@ -24,7 +24,7 @@ namespace BetteRCon
 	class Server
 	{
 	public:
-
+		Server();
 	private:
 		std::thread m_thread;
 	};
