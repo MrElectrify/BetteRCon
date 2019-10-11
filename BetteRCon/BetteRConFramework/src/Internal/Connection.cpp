@@ -155,8 +155,8 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	if (receivedPacket->IsResponse() == true)
 	{
 		// return the response to the caller
-		auto callbackFn = m_recvCallbacks.find(receivedPacket->GetSequence());
-		if (callbackFn == m_recvCallbacks.end())
+		auto callbackFnIt = m_recvCallbacks.find(receivedPacket->GetSequence());
+		if (callbackFnIt == m_recvCallbacks.end())
 		{
 			// this should not happen. abort
 			CloseConnection();
@@ -165,7 +165,10 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 		}
 
 		// call the callback
-		callbackFn->second(ErrorCode_t{}, receivedPacket);
+		callbackFnIt->second(ErrorCode_t{}, receivedPacket);
+
+		// remove the callback
+		m_recvCallbacks.erase(callbackFnIt);
 	}
 	else
 	{

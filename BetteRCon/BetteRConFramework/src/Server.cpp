@@ -44,6 +44,11 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
+bool Server::IsConnected() const noexcept
+{
+	return m_connection.IsConnected() == true;
+}
+
 Server::~Server()
 {
 	// we don't actually care if this fails, we are ending the server anyways

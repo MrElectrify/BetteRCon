@@ -1,7 +1,9 @@
 #include <BetteRCon/Server.h>
 
+#include <condition_variable>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <vector>
 
