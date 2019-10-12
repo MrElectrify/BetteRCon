@@ -149,6 +149,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <Text Include="CMakeLists.txt" />
     <Text Include="Design.txt" />
   </ItemGroup>
   <ItemGroup>

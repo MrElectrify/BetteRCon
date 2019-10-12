@@ -28,6 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Design.txt" />
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Server.cpp">
