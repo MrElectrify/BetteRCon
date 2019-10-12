@@ -11,6 +11,7 @@
 
 // STL
 #include <mutex>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -32,12 +33,49 @@ namespace BetteRCon
 			LoginResult_Unknown				// Socket-related error, or unknown response. More information can be retreived by GetLastErrorCode()
 		};
 
+		struct ServerInfo
+		{
+			std::string m_serverName;
+			int32_t m_playerCount;
+			int32_t m_maxPlayerCount;
+			std::string m_gameMode;
+			std::string m_map;
+			int32_t m_roundsPlayed;
+			int32_t m_roundsTotal;
+			struct Scores
+			{
+				std::vector<int32_t> m_teamScores;
+				int32_t m_goalScore;
+			} m_scores;
+			std::string m_onlineState;
+			bool m_ranked;
+			bool m_punkBuster;
+			bool m_hasPassword;
+			int32_t m_serverUpTime;
+			int32_t m_roundTime;
+			std::string m_serverIpAndPort;
+			std::string m_punkBusterVersion;
+			bool m_joinQueueEnabled;
+			std::string m_region;
+			std::string m_closestPingSite;
+			std::string m_country;
+			bool m_matchmakingEnabled;
+			int32_t m_blazePlayerCount;
+			std::string m_blazeGameState;
+		};
+		struct PlayerInfo
+		{
+
+		};
+
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
+		using PlayerInfoCallback_t = std::function<void(const PlayerInfo& info)>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
+		using ServerInfoCallback_t = std::function<void(const ServerInfo& info)>;
 		using Worker_t = Connection_t::Worker_t;
 		// Default constructor. Creates thread
 		Server();
@@ -47,8 +85,8 @@ namespace BetteRCon
 		// Attempts to connect to a server. Returns ErrorCode_t in on error
 		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
 
-		// Attempts to login to the server using a hashed password. Calls loginCallback on completion with the result
-		void Login(const std::string& password, LoginCallback_t&& loginCallback);
+		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. Calls loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
+		void Login(const std::string& password, LoginCallback_t&& loginCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
 
 		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
 		void Disconnect();
@@ -67,17 +105,26 @@ namespace BetteRCon
 
 		~Server();
 	private:
+		void SendResponse(const std::vector<std::string>& response, const int32_t sequence);
+
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
 
-		void MainLoop();
+		void HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::string>& serverInfo);
+		void HandleServerInfoTimerExpire(const ErrorCode_t& ec);
 
 		static int32_t s_lastSequence;
 
 		Worker_t m_worker;
 		Connection_t m_connection;
 		std::thread m_thread;
+
+		// server info
+
+		ServerInfo m_serverInfo;
+		ServerInfoCallback_t m_serverInfoCallback;
+		asio::steady_timer m_serverInfoTimer;
 	};
 }
 

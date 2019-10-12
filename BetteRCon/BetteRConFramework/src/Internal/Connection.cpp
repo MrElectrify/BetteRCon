@@ -3,7 +3,7 @@
 using BetteRCon::Internal::Connection;
 using BetteRCon::Internal::Packet;
 
-Connection::Connection(Worker_t& worker, RecvCallback_t&& eventCallback) : m_connected(false), m_eventCallback(eventCallback), m_socket(worker), m_timeoutTimer(worker) {}
+Connection::Connection(Worker_t& worker, RecvCallback_t&& eventCallback) : m_connected(false), m_eventCallback(std::move(eventCallback)), m_socket(worker), m_timeoutTimer(worker) {}
 
 void Connection::Connect(const Endpoint_t& endpoint)
 {
