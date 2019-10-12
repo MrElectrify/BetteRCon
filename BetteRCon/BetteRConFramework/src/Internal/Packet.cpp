@@ -18,7 +18,7 @@ Packet::Packet(const std::vector<Word>& command, const int32_t sequence, bool re
 		m_words.emplace_back(std::move(commandPart));
 	}
 
-	m_fromServer = true;
+	m_fromClient = false;
 }
 
 Packet::Packet(const std::vector<char>& buf)
@@ -30,7 +30,7 @@ Packet::Packet(const std::vector<char>& buf)
 	const auto sequence = *reinterpret_cast<const int32_t*>(&buf[offset]);
 	offset += sizeof(int32_t);
 
-	m_fromServer = (sequence >> 31) & 1;
+	m_fromClient = (sequence >> 31) & 1;
 	m_response = (sequence >> 30) & 1;
 
 	m_sequence = sequence & 0x3FFFFFFF;
@@ -76,9 +76,9 @@ Packet::Packet(const std::vector<char>& buf)
 	}
 }
 
-bool Packet::IsFromServer() const
+bool Packet::IsFromClient() const
 {
-	return m_fromServer == true;
+	return m_fromClient == true;
 }
 
 bool Packet::IsResponse() const
@@ -109,7 +109,7 @@ void Packet::Serialize(std::vector<char>& bufOut) const
 	size_t offset = 0;
 
 	// write the sequence
-	*reinterpret_cast<int32_t*>(&bufOut[offset]) = (m_fromServer << 31) | (m_response << 30) | m_sequence;
+	*reinterpret_cast<int32_t*>(&bufOut[offset]) = (m_fromClient << 31) | (m_response << 30) | m_sequence;
 	offset += sizeof(int32_t);
 
 	// write the size

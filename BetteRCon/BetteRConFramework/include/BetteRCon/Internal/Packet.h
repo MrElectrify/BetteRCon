@@ -37,7 +37,7 @@ namespace BetteRCon
 			Packet(const std::vector<char>& buf);
 
 			// Gets whether or not the packet was from the client
-			bool IsFromServer() const;
+			bool IsFromClient() const;
 			// Gets whether or not the packet was a response
 			bool IsResponse() const;
 			// Get the sequence of the packet
@@ -51,7 +51,7 @@ namespace BetteRCon
 			// Serializes the packet to a buffer
 			void Serialize(std::vector<char>& bufOut) const;
 		private:
-			bool m_fromServer;
+			bool m_fromClient;
 			bool m_response;
 			int32_t m_sequence;
 			int32_t m_size;
