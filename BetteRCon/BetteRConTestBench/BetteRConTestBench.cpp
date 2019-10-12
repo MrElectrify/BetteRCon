@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 		}, [] (const Server::ServerInfo& serverInfo) 
 		{
 			std::cout << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
-		}, [] (const Server::PlayerInfo&) {});
+		}, [] (const Server::PlayerInfo& playerInfo) {});
 
 		{
 			// wait for the login response

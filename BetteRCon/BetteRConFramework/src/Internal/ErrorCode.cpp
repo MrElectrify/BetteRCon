@@ -3,12 +3,12 @@
 using BetteRCon::Internal::errc;
 using BetteRCon::Internal::bettercon_category_impl;
 
-const char* bettercon_category_impl::name() const
+const char* bettercon_category_impl::name() const noexcept
 {
 	return "bettercon";
 }
 
-std::string bettercon_category_impl::message(int ev) const
+std::string bettercon_category_impl::message(int ev) const noexcept
 {
 	switch (ev)
 	{
@@ -21,7 +21,7 @@ std::string bettercon_category_impl::message(int ev) const
 	}
 }
 
-bool bettercon_category_impl::equivalent(const std::error_code& ec, int condition) const
+bool bettercon_category_impl::equivalent(const std::error_code& ec, int condition) const noexcept
 {
 	return false;
 }

@@ -31,9 +31,9 @@ namespace BetteRCon
 			public std::error_category
 		{
 		public:
-			virtual const char* name() const;
-			virtual std::string message(int ev) const;
-			virtual bool equivalent(const std::error_code& ec, int condition) const;
+			virtual const char* name() const noexcept;
+			virtual std::string message(int ev) const noexcept;
+			virtual bool equivalent(const std::error_code& ec, int condition) const noexcept;
 		};
 
 		// error code's category

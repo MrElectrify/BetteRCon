@@ -1,5 +1,7 @@
 #include <BetteRCon/Internal/Packet.h>
 
+#include <cstring>
+
 using BetteRCon::Internal::Packet;
 
 Packet::Packet(const std::vector<Word>& command, const int32_t sequence, bool response) : m_response(response), m_sequence(sequence)
