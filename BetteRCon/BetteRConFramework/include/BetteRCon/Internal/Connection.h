@@ -10,6 +10,7 @@
 #include <BetteRCon/Internal/Packet.h>
 
 // ASIO
+#define ASIO_STANDALONE 1
 #include <asio.hpp>
 
 // STL
