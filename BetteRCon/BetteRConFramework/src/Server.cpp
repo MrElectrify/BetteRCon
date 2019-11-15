@@ -33,9 +33,7 @@ void Server::Connect(const Endpoint_t& endpoint)
 {
 	// make sure we are not already connected
 	if (m_connection.IsConnected() == true)
-	{
 		m_connection.Disconnect();
-	}
 
 	// make sure our thread is not already running a server
 	if (m_thread.joinable() == true)
