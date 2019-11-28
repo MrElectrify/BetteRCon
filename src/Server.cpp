@@ -254,7 +254,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 
 		// parse scores
 		size_t offset = 0;
-		auto numTeams = stoi(serverInfo.at(8));
+		auto numTeams = static_cast<size_t>(stoi(serverInfo.at(8)));
 		for (; offset < numTeams; ++offset)
 		{
 			m_serverInfo.m_scores.m_teamScores.push_back(stoi(serverInfo.at(9 + offset)));
