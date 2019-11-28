@@ -7,6 +7,7 @@
  */
 
  // BetteRCon
+#include <BetteRCon/Plugin.h>
 #include <BetteRCon/Internal/Connection.h>
 
 // STL
@@ -78,6 +79,8 @@ namespace BetteRCon
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
 		using PlayerInfoCallback_t = std::function<void(const PlayerInfo& info)>;
+		// failReason is only populated if success is false
+		using PluginLoadCallback_t = std::function<void(const std::string& pluginName, const bool success, const std::string& failReason)>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
 		using ServerInfoCallback_t = std::function<void(const ServerInfo& info)>;
 		using Worker_t = Connection_t::Worker_t;
@@ -89,8 +92,10 @@ namespace BetteRCon
 		// Attempts to connect to a server. Returns ErrorCode_t in on error
 		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
 
-		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. Calls eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
-		void Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
+		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. 
+		// Calls disconnectCallback when the server disconnects, pluginLoadCallback when a plugin loads or fails to load, 
+		// eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
+		void Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginLoadCallback_t&& pluginLoadCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
 
 		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
 		void Disconnect();
@@ -121,6 +126,11 @@ namespace BetteRCon
 		void HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::string>& serverInfo);
 		void HandleServerInfoTimerExpire(const ErrorCode_t& ec);
 
+		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
+		using PluginFactory_t = std::add_pointer_t<Plugin*()>;
+
+		void LoadPlugins();
+
 		static int32_t s_lastSequence;
 
 		Worker_t m_worker;
@@ -130,13 +140,22 @@ namespace BetteRCon
 		std::unordered_multimap<std::string, EventCallback_t> m_eventCallbacks;
 
 		// server info
-
 		ServerInfo m_serverInfo;
+		asio::steady_timer m_serverInfoTimer;
 
+		// callbacks
 		DisconnectCallback_t m_disconnectCallback;
 		EventCallback_t m_eventCallback;
+		PluginLoadCallback_t m_pluginLoadCallback;
 		ServerInfoCallback_t m_serverInfoCallback;
-		asio::steady_timer m_serverInfoTimer;
+		
+		// plugins
+		struct PluginInfo
+		{
+			Plugin* pPlugin;
+			PluginDestructor_t pDestructor;
+		};
+		std::unordered_map<std::string, PluginInfo> m_plugins;
 	};
 }
 

@@ -1,6 +1,22 @@
 #include <BetteRCon/Server.h>
 #include <MD5.h>
 
+#include <filesystem>
+
+#ifdef _WIN32
+#include <Windows.h>
+#elif __linux__
+#include <dlfcn.h>
+#endif
+
+#ifdef _WIN32
+#define BLoadLibrary(fileName) LoadLibraryA(fileName)
+#define BFindFunction(hLibrary, functionName) GetProcAddress(hLibrary, functionName)
+#elif __linux__
+#define BLoadLibrary(fileName) dlopen(fileName, RTLD_LAZY)
+#define BFindFunction(hLibrary, functionName) dlsym(hLibrary, functionName)
+#endif
+
 using BetteRCon::Server;
 
 int32_t Server::s_lastSequence = 0;
@@ -56,7 +72,7 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginLoadCallback_t&& pluginLoadCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
@@ -66,6 +82,7 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	// store the callbacks
 	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
+	m_pluginLoadCallback = std::move(pluginLoadCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	// m_playerInfoCallback = std::move(playerInfoCallback);
 }
@@ -216,7 +233,10 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			this, std::placeholders::_1));
 
 		// call the login callback
-		return loginCallback(LoginResult_OK);
+		loginCallback(LoginResult_OK);
+
+		// load the plugins
+		return LoadPlugins();
 	}
 	else if (response.at(0) == "InvalidPasswordHash")
 	{
@@ -318,4 +338,62 @@ void Server::HandleServerInfoTimerExpire(const ErrorCode_t& ec)
 	SendCommand({ "serverInfo" }, std::bind(
 		&Server::HandleServerInfo, this,
 		std::placeholders::_1, std::placeholders::_2));
+}
+
+void Server::LoadPlugins()
+{
+	// make sure the plugins directory exists
+	if (std::filesystem::is_directory("plugins/") == false)
+		return;
+
+	// iterate the plugins directory
+	for (const auto& file : std::filesystem::directory_iterator("plugins/"))
+	{
+		auto pathStr = file.path().string();
+		if (pathStr.size() < sizeof(".plugin") - 1)
+			continue;
+
+		// invalid extension
+		if (pathStr.substr(pathStr.size() - sizeof(".plugin")) != ".plugin")
+			continue;
+
+		auto hPlugin = BLoadLibrary(file.path().string().c_str());
+
+		if (hPlugin == nullptr)
+		{
+			m_pluginLoadCallback(pathStr, false, "Failed to open file");
+			continue;
+		}
+
+		auto fnPluginFactory = reinterpret_cast<PluginFactory_t>(BFindFunction(hPlugin, "CreatePlugin"));
+
+		if (fnPluginFactory == nullptr)
+		{
+			m_pluginLoadCallback(pathStr, false, "Failed to find CreatePlugin");
+			continue;
+		}
+
+		auto fnPluginDestructor = reinterpret_cast<PluginDestructor_t>(BFindFunction(hPlugin, "DestroyPlugin"));
+
+		if (fnPluginDestructor == nullptr)
+		{
+			m_pluginLoadCallback(pathStr, false, "Failed to find DestroyPlugin");
+			continue;
+		}
+
+		// we have a valid plugin. create it and add it to the map
+		auto pPlugin = fnPluginFactory();
+
+		if (pPlugin == nullptr)
+		{
+			m_pluginLoadCallback(pathStr, false, "CreatePlugin returned nullptr");
+			continue;
+		}
+
+		// add the plugin to the map
+		m_plugins.emplace(pPlugin->GetPluginName(), PluginInfo{ pPlugin, fnPluginDestructor });
+
+		// call the callback
+		m_pluginLoadCallback(pPlugin->GetPluginName(), true, "");
+	}
 }

@@ -1,1 +1,1 @@
-g++ --std=c++17 -I../include -I../dependencies/asio/asio/include -Llib ../src/BetteRConTestBench.cpp -Wl,-Bstatic -lBetteRConFramework -Wl,-Bdynamic -lpthread -obin/BetteRConTestBench
+g++ --std=c++17 -I../include -I../dependencies/asio/asio/include -Llib ../src/BetteRConTestBench.cpp -Wl,-Bstatic -lBetteRConFramework -Wl,-Bdynamic -lpthread -ldl -lstdc++fs -obin/BetteRConTestBench

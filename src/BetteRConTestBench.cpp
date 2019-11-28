@@ -71,6 +71,13 @@ int main(int argc, char* argv[])
 			g_conVar.notify_one();
 		}, 
 			[](const Server::ErrorCode_t& ec) {},
+			[](const std::string& pluginName, const bool success, const std::string& info)
+		{
+			if (success == true)
+				std::cout << "Loaded plugin " << pluginName << '\n';
+			else
+				std::cout << "Failed to load plugin " << pluginName << ": " << info << '\n';
+		},
 			[](const std::vector<std::string>& eventWords)
 		{
 			std::cout << "Event " << eventWords.at(0) << ": ";
