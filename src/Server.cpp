@@ -58,13 +58,15 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
 		std::bind(&Server::HandleLoginRecvHash, this,
 			std::placeholders::_1, std::placeholders::_2, password, loginCallback));
 
+	// store the callbacks
+	m_eventCallback = std::move(eventCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	// m_playerInfoCallback = std::move(playerInfoCallback);
 }

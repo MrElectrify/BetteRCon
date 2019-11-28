@@ -88,8 +88,8 @@ namespace BetteRCon
 		// Attempts to connect to a server. Returns ErrorCode_t in on error
 		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
 
-		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. Calls loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
-		void Login(const std::string& password, LoginCallback_t&& loginCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
+		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. Calls eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
+		void Login(const std::string& password, LoginCallback_t&& loginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
 
 		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
 		void Disconnect();
@@ -123,11 +123,13 @@ namespace BetteRCon
 		Connection_t m_connection;
 		std::thread m_thread;
 
-		std::unordered_map<std::string, std::function<void(std::vector<std::string>&)>> m_eventHandlers;
+		std::unordered_multimap<std::string, std::function<void(std::vector<std::string>&)>> m_eventCallbacks;
 
 		// server info
 
 		ServerInfo m_serverInfo;
+
+		EventCallback_t m_eventCallback;
 		ServerInfoCallback_t m_serverInfoCallback;
 		asio::steady_timer m_serverInfoTimer;
 	};
