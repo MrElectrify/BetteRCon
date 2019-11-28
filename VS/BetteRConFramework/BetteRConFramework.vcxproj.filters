@@ -60,4 +60,7 @@
       <Filter>Header Files\BetteRCon</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\Design.txt" />
+  </ItemGroup>
 </Project>

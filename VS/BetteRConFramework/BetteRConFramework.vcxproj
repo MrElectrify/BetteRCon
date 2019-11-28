@@ -161,6 +161,9 @@
     <ClCompile Include="..\..\src\Internal\Packet.cpp" />
     <ClCompile Include="..\..\src\Server.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\Design.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
