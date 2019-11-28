@@ -10,9 +10,11 @@
 #include <BetteRCon/Internal/Connection.h>
 
 // STL
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace BetteRCon
@@ -71,6 +73,7 @@ namespace BetteRCon
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
+		using EventCallback_t = std::function<void(const std::vector<std::string>& response)>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
 		using PlayerInfoCallback_t = std::function<void(const PlayerInfo& info)>;
@@ -119,6 +122,8 @@ namespace BetteRCon
 		Worker_t m_worker;
 		Connection_t m_connection;
 		std::thread m_thread;
+
+		std::unordered_map<std::string, std::function<void(std::vector<std::string>&)>> m_eventHandlers;
 
 		// server info
 
