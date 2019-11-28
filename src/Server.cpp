@@ -131,10 +131,25 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
 }
 
+void Server::RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback)
+{
+	// add the event callback to the list of callbacks for the event name
+	m_eventCallbacks.emplace(eventName, std::move(eventCallback));
+}
+
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
 		return m_disconnectCallback(ec);
+
+	if (event == nullptr)
+		return m_disconnectCallback(ec);
+
+	// call each event handler
+	auto eventRange = m_eventCallbacks.equal_range(event->GetWords().front());
+
+	for (auto it = eventRange.first; it != eventRange.second; ++it)
+		it->second(event->GetWords());
 
 	// call the main event handler
 	m_eventCallback(event->GetWords());

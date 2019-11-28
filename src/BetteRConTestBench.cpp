@@ -44,6 +44,13 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
+		// add a test callback on player.onJoin
+		server.RegisterCallback("player.onJoin",
+			[](const std::vector<std::string>& args)
+		{
+			std::cout << "OnJoin: " << args.at(1) << '\n';
+		});
+
 		server.Login(password, [&server](const Server::LoginResult loginRes)
 		{
 			// notify the main thread that we logged in

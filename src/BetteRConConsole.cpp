@@ -76,10 +76,6 @@ int main(int argc, char* argv[])
 	},
 		[](const std::vector<std::string>& eventWords)
 	{
-		// should not happen
-		if (eventWords.size() == 0)
-			return;
-
 		std::cout << "Event " << eventWords.front() << ": ";
 
 		// special case for punkBuster.onMessage

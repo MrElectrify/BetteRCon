@@ -167,7 +167,8 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	}
 
 	// is this a response or an event?
-	if (receivedPacket->IsResponse() == true)
+	if (receivedPacket->IsResponse() == true &&
+		receivedPacket->GetWords().size() > 0)
 	{
 		// return the response to the caller
 		auto callbackFnIt = m_recvCallbacks.find(receivedPacket->GetSequence());

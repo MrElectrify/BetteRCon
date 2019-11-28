@@ -107,6 +107,9 @@ namespace BetteRCon
 		// RecvCallback_t must not block, as it is called from the worker thread
 		void SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback);
 
+		// Registers a callback that will be called any time an event is received
+		void RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback);
+
 		~Server();
 	private:
 		void SendResponse(const std::vector<std::string>& response, const int32_t sequence);
@@ -124,7 +127,7 @@ namespace BetteRCon
 		Connection_t m_connection;
 		std::thread m_thread;
 
-		std::unordered_multimap<std::string, std::function<void(std::vector<std::string>&)>> m_eventCallbacks;
+		std::unordered_multimap<std::string, EventCallback_t> m_eventCallbacks;
 
 		// server info
 

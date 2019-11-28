@@ -38,6 +38,8 @@ namespace BetteRCon
 			using Proto_t = asio::ip::tcp;			
 			using Endpoint_t = Proto_t::endpoint;
 			using Socket_t = Proto_t::socket;
+
+			// If no error occurred (this is, !ec), the packet is guaranteed to be non-nullptr, and have at least one word
 			using RecvCallback_t = std::function<void(const ErrorCode_t&, std::shared_ptr<Packet>)>;
 
 			// Creates a server connection
