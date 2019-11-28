@@ -63,6 +63,7 @@ int main(int argc, char* argv[])
 			g_loginComplete = true;
 			g_conVar.notify_one();
 		}, 
+			[](const Server::ErrorCode_t& ec) {},
 			[](const std::vector<std::string>& eventWords)
 		{
 			std::cout << "Event " << eventWords.at(0) << ": ";

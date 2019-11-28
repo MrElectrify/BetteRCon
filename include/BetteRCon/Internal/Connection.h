@@ -63,7 +63,7 @@ namespace BetteRCon
 			// RecvCallback signature: void(const ErrorCode_t&, const Packet&)
 			void SendPacket(const Packet& packet, RecvCallback_t&& callback);
 		private:
-			void CloseConnection();
+			void CloseConnection(const ErrorCode_t& ec);
 
 			void HandleReadHeader(const ErrorCode_t& ec, const size_t bytes_transferred);
 			void HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transferred);

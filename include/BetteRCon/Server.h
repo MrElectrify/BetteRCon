@@ -73,6 +73,7 @@ namespace BetteRCon
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
+		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
 		using EventCallback_t = std::function<void(const std::vector<std::string>& response)>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
@@ -89,7 +90,7 @@ namespace BetteRCon
 		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
 
 		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. Calls eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
-		void Login(const std::string& password, LoginCallback_t&& loginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
+		void Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
 
 		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
 		void Disconnect();
@@ -129,6 +130,7 @@ namespace BetteRCon
 
 		ServerInfo m_serverInfo;
 
+		DisconnectCallback_t m_disconnectCallback;
 		EventCallback_t m_eventCallback;
 		ServerInfoCallback_t m_serverInfoCallback;
 		asio::steady_timer m_serverInfoTimer;

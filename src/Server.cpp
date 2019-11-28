@@ -56,7 +56,7 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
@@ -64,6 +64,7 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 			std::placeholders::_1, std::placeholders::_2, password, loginCallback));
 
 	// store the callbacks
+	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	// m_playerInfoCallback = std::move(playerInfoCallback);
@@ -72,6 +73,14 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 void Server::Disconnect()
 {
 	m_connection.Disconnect();
+
+	ErrorCode_t ec;
+
+	// kill timers
+	m_serverInfoTimer.cancel(ec);
+
+	if (ec)
+		throw ec;
 }
 
 void Server::Disconnect(ErrorCode_t& ec) noexcept
@@ -108,13 +117,6 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 
 Server::~Server()
 {
-	// we don't actually care if this fails, we are ending the server anyways
-	ErrorCode_t ec;
-	m_connection.Disconnect(ec);
-
-	// kill timers
-	m_serverInfoTimer.cancel(ec);
-
 	// wait for the thread
 	if (m_thread.joinable() == true)
 		m_thread.join();
@@ -129,8 +131,11 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
 }
 
-void Server::HandleEvent(const ErrorCode_t&, std::shared_ptr<Packet_t> event)
+void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
+	if (ec)
+		return m_disconnectCallback(ec);
+
 	// call the main event handler
 	m_eventCallback(event->GetWords());
 

@@ -10,6 +10,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConTestBench", "Bette
 		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConConsole", "BetteRConConsole\BetteRConConsole.vcxproj", "{ED1F70B6-06AA-43A4-9433-F5D133D156AA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -34,6 +39,14 @@ Global
 		{3BE45B20-0C1F-4C04-BC89-9328044D3A03}.Release|x64.Build.0 = Release|x64
 		{3BE45B20-0C1F-4C04-BC89-9328044D3A03}.Release|x86.ActiveCfg = Release|Win32
 		{3BE45B20-0C1F-4C04-BC89-9328044D3A03}.Release|x86.Build.0 = Release|Win32
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Debug|x64.ActiveCfg = Debug|x64
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Debug|x64.Build.0 = Debug|x64
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Debug|x86.ActiveCfg = Debug|Win32
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Debug|x86.Build.0 = Debug|Win32
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x64.ActiveCfg = Release|x64
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x64.Build.0 = Release|x64
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x86.ActiveCfg = Release|Win32
+		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

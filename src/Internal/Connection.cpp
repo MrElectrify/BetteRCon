@@ -48,7 +48,7 @@ void Connection::Disconnect()
 		throw asio::error::make_error_code(asio::error::not_connected);
 
 	// calling from the same thread, this is OK
-	CloseConnection();
+	CloseConnection(ErrorCode_t{});
 }
 
 void Connection::Disconnect(ErrorCode_t& ec) noexcept
@@ -91,7 +91,7 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 			std::placeholders::_1, std::placeholders::_2));
 }
 
-void Connection::CloseConnection()
+void Connection::CloseConnection(const ErrorCode_t& reason)
 {
 	ErrorCode_t ec;
 
@@ -103,6 +103,9 @@ void Connection::CloseConnection()
 
 	// cancel the timer
 	m_timeoutTimer.cancel(ec);
+
+	// call the event handler with an error so it knows it disconnected
+	m_eventCallback(reason, nullptr);
 }
 
 void Connection::HandleReadHeader(const ErrorCode_t& ec, const size_t bytes_transferred)
@@ -114,7 +117,7 @@ void Connection::HandleReadHeader(const ErrorCode_t& ec, const size_t bytes_tran
 			m_connected == true)
 		{
 			m_lastErrorCode = ec;
-			CloseConnection();
+			CloseConnection(ec);
 		}
 		return;
 	}
@@ -139,7 +142,7 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 			m_connected == true)
 		{
 			m_lastErrorCode = ec;
-			CloseConnection();
+			CloseConnection(ec);
 		}
 		return;
 	}
@@ -159,7 +162,7 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	{
 		// we got a bad packet. disconnect
 		m_lastErrorCode = asio::error::make_error_code(asio::error::invalid_argument);
-		CloseConnection();
+		CloseConnection(m_lastErrorCode);
 		return;
 	}
 
@@ -171,7 +174,7 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 		if (callbackFnIt == m_recvCallbacks.end())
 		{
 			// this should not happen. abort
-			CloseConnection();
+			CloseConnection(m_lastErrorCode);
 			m_lastErrorCode = asio::error::make_error_code(asio::error::service_not_found);
 			return;
 		}
@@ -204,7 +207,7 @@ void Connection::HandleTimeout(const ErrorCode_t& ec)
 
 	// 2 minutes have passed since we got a transmission from them. assume they are frozen, shutdown
 	m_lastErrorCode = asio::error::make_error_code(asio::error::timed_out);
-	CloseConnection();
+	CloseConnection(ec);
 }
 
 void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferred)
@@ -216,7 +219,7 @@ void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferr
 			m_connected == true)
 		{
 			m_lastErrorCode = ec;
-			CloseConnection();
+			CloseConnection(ec);
 		}
 	}
 }
