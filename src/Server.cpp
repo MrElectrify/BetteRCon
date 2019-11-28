@@ -1,8 +1,6 @@
 #include <BetteRCon/Server.h>
 #include <MD5.h>
 
-#include <iostream>
-
 using BetteRCon::Server;
 
 int32_t Server::s_lastSequence = 0;
@@ -133,16 +131,8 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 
 void Server::HandleEvent(const ErrorCode_t&, std::shared_ptr<Packet_t> event)
 {
-	const auto& words = event->GetWords();
-
-	std::cout << "Event " << words.at(0) << " (" << event->GetSequence() << "): ";
-
-	// print out the event for debugging
-	for (size_t i = 1; i < words.size(); ++i)
-	{
-		std::cout << words.at(i) << ' ';
-	}
-	std::cout << '\n';
+	// call the main event handler
+	m_eventCallback(event->GetWords());
 
 	// send back the OK response
 	SendResponse({ "OK" }, event->GetSequence());

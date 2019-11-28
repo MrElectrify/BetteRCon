@@ -62,7 +62,17 @@ int main(int argc, char* argv[])
 
 			g_loginComplete = true;
 			g_conVar.notify_one();
-		}, [] (const Server::ServerInfo& serverInfo) 
+		}, [](const std::vector<std::string>& eventWords)
+		{
+			std::cout << "Event " << eventWords.at(0) << ": ";
+
+			// print out the event for debugging
+			for (size_t i = 1; i < eventWords.size(); ++i)
+			{
+				std::cout << eventWords.at(i) << ' ';
+			}
+			std::cout << '\n';
+		}, [](const Server::ServerInfo& serverInfo)
 		{
 			std::cout << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
 		}, [] (const Server::PlayerInfo& playerInfo) {});
