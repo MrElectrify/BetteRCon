@@ -17,4 +17,7 @@ it. A plugin will always be created in the disabled state, and if the configurat
 it to be enabled, or it is enabled manually, the member function Enable() is called, which will 
 be used to register event listener callbacks per-event.
 
+Plugins will be stored compiled with the extension ".plugin", and will be a DLL on windows, and
+a shared library on linux.
+
 This file will evolve as the design evolves and unfolds
