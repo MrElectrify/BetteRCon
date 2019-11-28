@@ -381,7 +381,7 @@ void Server::LoadPlugins()
 			continue;
 		}
 
-		// we have a valid plugin. create it and add it to the map
+		// we have a valid plugin. create an instance
 		auto pPlugin = fnPluginFactory();
 
 		if (pPlugin == nullptr)
