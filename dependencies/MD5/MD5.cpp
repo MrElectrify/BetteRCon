@@ -31,7 +31,7 @@ documentation and/or software.
 */
 
 /* interface header */
-#include <BetteRCon/Internal/MD5.h>
+#include <MD5.h>
 
 /* system implementation headers */
 #include <cstdio>

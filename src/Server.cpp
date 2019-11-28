@@ -1,5 +1,5 @@
 #include <BetteRCon/Server.h>
-#include <BetteRCon/Internal/MD5.h>
+#include <MD5.h>
 
 #include <iostream>
 

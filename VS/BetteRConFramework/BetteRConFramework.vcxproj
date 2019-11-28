@@ -20,20 +20,21 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{3BE45B20-0C1F-4C04-BC89-9328044D3A03}</ProjectGuid>
-    <RootNamespace>BetteRConTestBench</RootNamespace>
+    <ProjectGuid>{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}</ProjectGuid>
+    <RootNamespace>BetteRConFramework</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <ProjectName>BetteRConFramework</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>llvm</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>llvm</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -41,14 +42,14 @@
     <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>llvm</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>llvm</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -74,70 +75,40 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>build\$(Configuration)\$(Platform)\</OutDir>
-    <IncludePath>..\..\asio\asio\include\;..\BetteRConFramework\include;include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\BetteRConFramework\build\$(Configuration)\$(Platform);$(LibraryPath)</LibraryPath>
+    <OutDir>..\lib\$(Platform)\$(Configuration)\</OutDir>
+    <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include\;..\..\dependencies\MD5\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>build\$(Configuration)\$(Platform)\</OutDir>
-    <IncludePath>..\..\asio\asio\include\;..\BetteRConFramework\include;include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\BetteRConFramework\build\$(Configuration)\$(Platform);$(LibraryPath)</LibraryPath>
+    <OutDir>..\lib\$(Platform)\$(Configuration)\</OutDir>
+    <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include\;..\..\dependencies\MD5\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>build\$(Configuration)\$(Platform)\</OutDir>
-    <IncludePath>..\..\asio\asio\include\;..\BetteRConFramework\include;include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\BetteRConFramework\build\$(Configuration)\$(Platform);$(LibraryPath)</LibraryPath>
+    <OutDir>..\lib\$(Platform)\$(Configuration)\</OutDir>
+    <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include\;..\..\dependencies\MD5\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>build\$(Configuration)\$(Platform)\</OutDir>
-    <IncludePath>..\..\asio\asio\include\;..\BetteRConFramework\include;include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\BetteRConFramework\build\$(Configuration)\$(Platform);$(LibraryPath)</LibraryPath>
+    <OutDir>..\lib\$(Platform)\$(Configuration)\</OutDir>
+    <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include\;..\..\dependencies\MD5\;$(IncludePath)</IncludePath>
   </PropertyGroup>
-  <PropertyGroup Label="LLVM" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <UseLldLink>false</UseLldLink>
-    <UseLlvmLib>false</UseLlvmLib>
-  </PropertyGroup>
-  <PropertyGroup Label="LLVM" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <UseLldLink>false</UseLldLink>
-    <UseLlvmLib>false</UseLlvmLib>
-  </PropertyGroup>
-  <PropertyGroup Label="LLVM" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <UseLldLink>false</UseLldLink>
-    <UseLlvmLib>false</UseLlvmLib>
-  </PropertyGroup>
-  <PropertyGroup Label="LLVM" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <UseLldLink>false</UseLldLink>
-    <UseLlvmLib>false</UseLlvmLib>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
-    <Link>
-      <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
-    <Link>
-      <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -147,15 +118,16 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
     </Link>
+    <Lib>
+      <LinkTimeCodeGeneration>false</LinkTimeCodeGeneration>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -165,21 +137,29 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
     </Link>
+    <Lib>
+      <LinkTimeCodeGeneration>false</LinkTimeCodeGeneration>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BetteRConTestBench.cpp" />
+    <ClInclude Include="..\..\include\BetteRCon\Internal\Connection.h" />
+    <ClInclude Include="..\..\include\BetteRCon\Internal\ErrorCode.h" />
+    <ClInclude Include="..\..\include\BetteRCon\Internal\Packet.h" />
+    <ClInclude Include="..\..\include\BetteRCon\Server.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="CMakeLists.txt" />
+    <ClCompile Include="..\..\dependencies\MD5\MD5.cpp" />
+    <ClCompile Include="..\..\src\Internal\Connection.cpp" />
+    <ClCompile Include="..\..\src\Internal\ErrorCode.cpp" />
+    <ClCompile Include="..\..\src\Internal\Packet.cpp" />
+    <ClCompile Include="..\..\src\Server.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

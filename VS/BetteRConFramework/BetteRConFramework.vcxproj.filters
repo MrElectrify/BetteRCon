@@ -25,43 +25,39 @@
     <Filter Include="Source Files\BetteRCon\Internal">
       <UniqueIdentifier>{61f63c9d-8369-4a5a-ada8-1f142ee84371}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Dependencies">
+      <UniqueIdentifier>{da5efec1-a3b0-46c9-832b-5234cb76e35f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Design.txt" />
-    <Text Include="CMakeLists.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="src\Server.cpp">
+    <ClCompile Include="..\..\src\Internal\Connection.cpp">
+      <Filter>Source Files\BetteRCon\Internal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Internal\ErrorCode.cpp">
+      <Filter>Source Files\BetteRCon\Internal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Internal\Packet.cpp">
+      <Filter>Source Files\BetteRCon\Internal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Server.cpp">
       <Filter>Source Files\BetteRCon</Filter>
     </ClCompile>
-    <ClCompile Include="src\Internal\Connection.cpp">
-      <Filter>Source Files\BetteRCon\Internal</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Internal\Packet.cpp">
-      <Filter>Source Files\BetteRCon\Internal</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Internal\ErrorCode.cpp">
-      <Filter>Source Files\BetteRCon\Internal</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Internal\MD5.cpp">
-      <Filter>Source Files\BetteRCon\Internal</Filter>
+    <ClCompile Include="..\..\dependencies\MD5\MD5.cpp">
+      <Filter>Source Files\Dependencies</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\BetteRCon\Server.h">
+    <ClInclude Include="..\..\include\BetteRCon\Internal\Connection.h">
+      <Filter>Header Files\BetteRCon\Internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\BetteRCon\Internal\ErrorCode.h">
+      <Filter>Header Files\BetteRCon\Internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\BetteRCon\Internal\Packet.h">
+      <Filter>Header Files\BetteRCon\Internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\BetteRCon\Server.h">
       <Filter>Header Files\BetteRCon</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BetteRCon\Internal\Connection.h">
-      <Filter>Header Files\BetteRCon\Internal</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BetteRCon\Internal\Packet.h">
-      <Filter>Header Files\BetteRCon\Internal</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BetteRCon\Internal\ErrorCode.h">
-      <Filter>Header Files\BetteRCon\Internal</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BetteRCon\Internal\MD5.h">
-      <Filter>Header Files\BetteRCon\Internal</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
