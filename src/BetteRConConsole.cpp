@@ -76,19 +76,24 @@ int main(int argc, char* argv[])
 	},
 		[](const std::vector<std::string>& eventWords)
 	{
-		std::cout << "Event " << eventWords.at(0) << ": ";
+		// should not happen
+		if (eventWords.size() == 0)
+			return;
+
+		std::cout << "Event " << eventWords.front() << ": ";
+
+		// special case for punkBuster.onMessage
+		if (eventWords.front() == "punkBuster.onMessage")
+		{
+			auto& message = eventWords.at(1);
+			std::cout << message.substr(0, message.size() - 1) << '\n';
+			return;
+		}
 
 		// print out the event for debugging
 		for (size_t i = 1; i < eventWords.size(); ++i)
 		{
-			// check for newline
-			const auto& word = eventWords.at(i);
-			const auto newLine = word.find('\n');
-
-			if (newLine != std::string::npos)
-				std::cout << word.substr(0, newLine);
-			else
-				std::cout << word << ' ';
+			std::cout << eventWords.at(i) << ' ';
 		}
 		std::cout << '\n';
 	},
