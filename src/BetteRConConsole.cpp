@@ -27,9 +27,9 @@ int main(int argc, char* argv[])
 	}
 
 	// parse IP and port
-	char* ip = argv[1];
-	uint16_t port = atoi(argv[2]);
-	std::string password = argv[3];
+	const char* ip = argv[1];
+	const uint16_t port = atoi(argv[2]);
+	const std::string password = argv[3];
 
 	Server server;
 
@@ -81,7 +81,14 @@ int main(int argc, char* argv[])
 		// print out the event for debugging
 		for (size_t i = 1; i < eventWords.size(); ++i)
 		{
-			std::cout << eventWords.at(i) << ' ';
+			// check for newline
+			const auto& word = eventWords.at(i);
+			const auto newLine = word.find('\n');
+
+			if (newLine != std::string::npos)
+				std::cout << word.substr(0, newLine);
+			else
+				std::cout << word << ' ';
 		}
 		std::cout << '\n';
 	},
