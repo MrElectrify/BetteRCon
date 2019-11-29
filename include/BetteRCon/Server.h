@@ -7,8 +7,8 @@
  */
 
  // BetteRCon
-#include <BetteRCon/Plugin.h>
 #include <BetteRCon/Internal/Connection.h>
+#include <BetteRCon/Plugin.h>
 
 // STL
 #include <functional>

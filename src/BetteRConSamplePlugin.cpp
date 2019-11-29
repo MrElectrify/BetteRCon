@@ -21,12 +21,3 @@ public:
 
 	virtual ~SamplePlugin() {}
 BRENDPLUGIN(SamplePlugin)
-
-#ifdef _WIN32
-#include <Windows.h>
-// Windows-specific DllMain
-BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
-{
-	return TRUE;
-}
-#endif
