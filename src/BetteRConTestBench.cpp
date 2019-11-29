@@ -112,6 +112,13 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
+		// enable the plugin
+		if (server.EnablePlugin("Sample Plugin") == false)
+		{
+			std::cout << "Failed to enable plugin\n";
+			return 1;
+		}
+
 		// wait for 30 seconds to capture any events
 		std::this_thread::sleep_for(std::chrono::seconds(30));
 

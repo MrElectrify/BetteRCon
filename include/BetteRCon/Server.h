@@ -122,6 +122,12 @@ namespace BetteRCon
 		// Registers a callback that will be called any time an event is received
 		void RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback);
 
+		// Enables a plugin by name. Returns true on success
+		bool EnablePlugin(const std::string& pluginName);
+
+		// Disables a plugin by name. Returns true on success
+		bool DisablePlugin(const std::string& pluginName);
+
 		~Server();
 	private:
 		void SendResponse(const std::vector<std::string>& response, const int32_t sequence);

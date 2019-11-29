@@ -15,9 +15,6 @@
 
 #define BRBEGINPLUGIN(name) class name : public BetteRCon::Plugin		\
 {
-
-#ifdef _WIN32
-#include <Windows.h>
 #define BRENDPLUGINIMPL(name) };										\
 BPLUGIN_EXPORT name* CreatePlugin()										\
 {																		\
@@ -27,6 +24,9 @@ BPLUGIN_EXPORT void DestroyPlugin(name* pPlugin)						\
 {																		\
 	delete pPlugin;														\
 }
+
+#ifdef _WIN32
+#include <Windows.h>
 #define BRENDPLUGIN(name) BRENDPLUGINIMPL(name)							\
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)	\
 {																		\

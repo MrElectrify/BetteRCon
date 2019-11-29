@@ -178,6 +178,30 @@ void Server::RegisterCallback(const std::string& eventName, EventCallback_t&& ev
 	m_eventCallbacks.emplace(eventName, std::move(eventCallback));
 }
 
+bool Server::EnablePlugin(const std::string& pluginName)
+{
+	auto pluginIt = m_plugins.find(pluginName);
+
+	if (pluginIt == m_plugins.end())
+		return false;
+
+	pluginIt->second.pPlugin->Enable();
+	
+	return true;
+}
+
+bool Server::DisablePlugin(const std::string& pluginName)
+{
+	auto pluginIt = m_plugins.find(pluginName);
+
+	if (pluginIt == m_plugins.end())
+		return false;
+
+	pluginIt->second.pPlugin->Disable();
+
+	return true;
+}
+
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
@@ -195,6 +219,10 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 	// call each plugin's event handler
 	for (const auto& plugin : m_plugins)
 	{
+		// make sure the plugin is enabled
+		if (plugin.second.pPlugin->IsEnabled() == false)
+			continue;
+
 		const auto& handlers = plugin.second.pPlugin->GetEventHandlers();
 
 		// call their handler
@@ -268,11 +296,11 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			&Server::HandleServerInfoTimerExpire, 
 			this, std::placeholders::_1));
 
-		// call the login callback
-		loginCallback(LoginResult_OK);
-
 		// load the plugins
-		return LoadPlugins();
+		LoadPlugins();
+
+		// call the login callback
+		return loginCallback(LoginResult_OK);
 	}
 	else if (response.at(0) == "InvalidPasswordHash")
 	{

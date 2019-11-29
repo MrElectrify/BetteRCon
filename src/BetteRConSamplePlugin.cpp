@@ -19,5 +19,19 @@ public:
 	virtual std::string_view GetPluginName() { return "Sample Plugin"; }
 	virtual std::string_view GetPluginVersion() { return "v1.0.0"; }
 
+	virtual void Enable()
+	{
+		BetteRCon::Plugin::Enable();
+
+		std::cout << "Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+	}
+
+	virtual void Disable()
+	{
+		BetteRCon::Plugin::Disable();
+
+		std::cout << "Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+	}
+
 	virtual ~SamplePlugin() {}
 BRENDPLUGIN(SamplePlugin)
