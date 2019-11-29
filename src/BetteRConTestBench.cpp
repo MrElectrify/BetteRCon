@@ -85,7 +85,15 @@ int main(int argc, char* argv[])
 		},
 			[](const std::vector<std::string>& eventWords)
 		{
-			std::cout << "Event " << eventWords.at(0) << ": ";
+			std::cout << "Event " << eventWords.front() << ": ";
+
+			// special case for punkBuster.onMessage
+			if (eventWords.front() == "punkBuster.onMessage")
+			{
+				auto& message = eventWords.at(1);
+				std::cout << message.substr(0, message.size() - 1) << '\n';
+				return;
+			}
 
 			// print out the event for debugging
 			for (size_t i = 1; i < eventWords.size(); ++i)
@@ -93,7 +101,7 @@ int main(int argc, char* argv[])
 				std::cout << eventWords.at(i) << ' ';
 			}
 			std::cout << '\n';
-		}, 
+		},
 			[](const Server::ServerInfo& serverInfo)
 		{
 			std::cout << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
