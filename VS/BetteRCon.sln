@@ -8,12 +8,15 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConTestBench", "BetteRConTestBench\BetteRConTestBench.vcxproj", "{3BE45B20-0C1F-4C04-BC89-9328044D3A03}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
+		{9C000F57-4DC0-4D1F-A762-224A677511E9} = {9C000F57-4DC0-4D1F-A762-224A677511E9}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConConsole", "BetteRConConsole\BetteRConConsole.vcxproj", "{ED1F70B6-06AA-43A4-9433-F5D133D156AA}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConSamplePlugin", "BetteRConSamplePlugin\BetteRConSamplePlugin.vcxproj", "{9C000F57-4DC0-4D1F-A762-224A677511E9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -47,6 +50,14 @@ Global
 		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x64.Build.0 = Release|x64
 		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x86.ActiveCfg = Release|Win32
 		{ED1F70B6-06AA-43A4-9433-F5D133D156AA}.Release|x86.Build.0 = Release|Win32
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Debug|x64.ActiveCfg = Debug|x64
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Debug|x64.Build.0 = Debug|x64
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Debug|x86.ActiveCfg = Debug|Win32
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Debug|x86.Build.0 = Debug|Win32
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x64.ActiveCfg = Release|x64
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x64.Build.0 = Release|x64
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x86.ActiveCfg = Release|Win32
+		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

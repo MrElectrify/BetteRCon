@@ -74,12 +74,17 @@ int main(int argc, char* argv[])
 		g_disconnected = true;
 		g_conVar.notify_one();
 	},
-		[](const std::string& pluginName, const bool success, const std::string& info)
+		[](const std::string& pluginName, const bool load, const bool success, const std::string& failReason)
 	{
-		if (success == true)
-			std::cout << "Loaded plugin " << pluginName << '\n';
+		if (load == true)
+		{
+			if (success == true)
+				std::cout << "Loaded plugin " << pluginName << '\n';
+			else
+				std::cout << "Failed to load plugin " << pluginName << ": " << failReason << '\n';
+		}
 		else
-			std::cout << "Failed to load plugin " << pluginName << ": " << info << '\n';
+			std::cout << "Unloaded plugin " << pluginName << '\n';
 	},
 		[](const std::vector<std::string>& eventWords)
 	{

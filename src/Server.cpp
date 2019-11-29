@@ -12,9 +12,11 @@
 #ifdef _WIN32
 #define BLoadLibrary(fileName) LoadLibraryA(fileName)
 #define BFindFunction(hLibrary, functionName) GetProcAddress(hLibrary, functionName)
+#define BFreeLibrary(hLibrary) FreeLibrary(hLibrary)
 #elif __linux__
 #define BLoadLibrary(fileName) dlopen(fileName, RTLD_LAZY)
 #define BFindFunction(hLibrary, functionName) dlsym(hLibrary, functionName)
+#define BFreeLibrary(hLibrary) dlclose(hLibrary)
 #endif
 
 using BetteRCon::Server;
@@ -72,7 +74,7 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginLoadCallback_t&& pluginLoadCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
@@ -82,7 +84,7 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	// store the callbacks
 	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
-	m_pluginLoadCallback = std::move(pluginLoadCallback);
+	m_pluginCallback = std::move(pluginCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	// m_playerInfoCallback = std::move(playerInfoCallback);
 }
@@ -95,6 +97,22 @@ void Server::Disconnect()
 
 	// kill timers
 	m_serverInfoTimer.cancel(ec);
+
+	// disable plugins
+	for (const auto& plugin : m_plugins)
+	{
+		// make a copy, because the string_view's pointer is no longer valid once we free the library
+		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
+
+		plugin.second.pPlugin->Disable();
+		plugin.second.pDestructor(plugin.second.pPlugin);
+
+		// free the module
+		BFreeLibrary(plugin.second.hPluginModule);
+
+		// call the unload callback
+		m_pluginCallback(pluginName.data(), false, true, "");
+	}
 
 	if (ec)
 		throw ec;
@@ -134,6 +152,12 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 
 Server::~Server()
 {
+	ErrorCode_t ec;
+
+	// disconnect
+	if (IsConnected() == true)
+		Disconnect(ec);
+
 	// wait for the thread
 	if (m_thread.joinable() == true)
 		m_thread.join();
@@ -349,19 +373,22 @@ void Server::LoadPlugins()
 	// iterate the plugins directory
 	for (const auto& file : std::filesystem::directory_iterator("plugins/"))
 	{
+		if (file.is_directory() == true)
+			continue;
+
 		auto pathStr = file.path().string();
 		if (pathStr.size() < sizeof(".plugin") - 1)
 			continue;
 
 		// invalid extension
-		if (pathStr.substr(pathStr.size() - sizeof(".plugin")) != ".plugin")
+		if (pathStr.substr(pathStr.size() - sizeof(".plugin") + 1) != ".plugin")
 			continue;
 
 		auto hPlugin = BLoadLibrary(file.path().string().c_str());
 
 		if (hPlugin == nullptr)
 		{
-			m_pluginLoadCallback(pathStr, false, "Failed to open file");
+			m_pluginCallback(pathStr, true, false, "Failed to open file");
 			continue;
 		}
 
@@ -369,7 +396,7 @@ void Server::LoadPlugins()
 
 		if (fnPluginFactory == nullptr)
 		{
-			m_pluginLoadCallback(pathStr, false, "Failed to find CreatePlugin");
+			m_pluginCallback(pathStr, true, false, "Failed to find CreatePlugin");
 			continue;
 		}
 
@@ -377,7 +404,7 @@ void Server::LoadPlugins()
 
 		if (fnPluginDestructor == nullptr)
 		{
-			m_pluginLoadCallback(pathStr, false, "Failed to find DestroyPlugin");
+			m_pluginCallback(pathStr, true, false, "Failed to find DestroyPlugin");
 			continue;
 		}
 
@@ -386,14 +413,14 @@ void Server::LoadPlugins()
 
 		if (pPlugin == nullptr)
 		{
-			m_pluginLoadCallback(pathStr, false, "CreatePlugin returned nullptr");
+			m_pluginCallback(pathStr, true, false, "CreatePlugin returned nullptr");
 			continue;
 		}
 
 		// add the plugin to the map
-		m_plugins.emplace(pPlugin->GetPluginName(), PluginInfo{ pPlugin, fnPluginDestructor });
+		m_plugins.emplace(pPlugin->GetPluginName(), PluginInfo{ hPlugin, pPlugin, fnPluginDestructor });
 
 		// call the callback
-		m_pluginLoadCallback(pPlugin->GetPluginName(), true, "");
+		m_pluginCallback(pPlugin->GetPluginName().data(), true, true, "");
 	}
 }

@@ -8,14 +8,14 @@
 
 // PreProcessor Macros
 #ifdef _WIN32
-#define BPLUGIN_EXPORT __declspec(dllexport)
+#define BPLUGIN_EXPORT __declspec(dllexport) extern "C"
 #elif __GNUC__
-#define BPLUGIN_EXPORT __attribute__((visibility("default")))
+#define BPLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
 // STL
 #include <functional>
-#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -29,11 +29,11 @@ namespace BetteRCon
 		using HandlerMap_t = std::unordered_map<std::string, EventHandler_t>;
 
 		// Returns the name of the plugin's author
-		virtual std::string GetPluginAuthor() = 0;
+		virtual std::string_view GetPluginAuthor() = 0;
 		// Returns the name of the plugin
-		virtual std::string GetPluginName() = 0;
+		virtual std::string_view GetPluginName() = 0;
 		// Returns the version of the plugin
-		virtual std::string GetPluginVersion() = 0;
+		virtual std::string_view GetPluginVersion() = 0;
 
 		// Enables a plugin. BetteRCon will start calling handlers from this point
 		virtual void Enable() { m_enabled = true; }
