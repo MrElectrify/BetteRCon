@@ -13,8 +13,21 @@
 #define BPLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
+#define BRBEGINPLUGIN(name) class name : public BetteRCon::Plugin	\
+{
+#define BRENDPLUGIN(name) };										\
+BPLUGIN_EXPORT name* CreatePlugin()									\
+{																	\
+	return new name;												\
+}																	\
+BPLUGIN_EXPORT void DestroyPlugin(name* pPlugin)					\
+{																	\
+	delete pPlugin;													\
+}
+
 // STL
 #include <functional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -45,6 +58,9 @@ namespace BetteRCon
 
 		// Retreives all of the event handlers. Used internally by BetteRCon
 		const HandlerMap_t& GetEventHandlers() const { return m_eventHandlers; }
+
+		// Registers the desired handler to be called every time an event is fired
+		void RegisterHandler(const std::string& eventName, EventHandler_t&& eventHandler) { m_eventHandlers.emplace(eventName, eventHandler); }
 	private:
 		bool m_enabled = false;
 

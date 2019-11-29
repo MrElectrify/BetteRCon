@@ -192,6 +192,18 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 	for (auto it = eventRange.first; it != eventRange.second; ++it)
 		it->second(event->GetWords());
 
+	// call each plugin's event handler
+	for (const auto& plugin : m_plugins)
+	{
+		const auto& handlers = plugin.second.pPlugin->GetEventHandlers();
+
+		// call their handler
+		auto handlerIt = handlers.find(event->GetWords().front());
+
+		if (handlerIt != handlers.end())
+			handlerIt->second(event->GetWords());
+	}
+
 	// call the main event handler
 	m_eventCallback(event->GetWords());
 
