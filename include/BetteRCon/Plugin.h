@@ -13,11 +13,12 @@
 #define BPLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
-#ifdef _WIN32
-#include <Windows.h>
 #define BRBEGINPLUGIN(name) class name : public BetteRCon::Plugin		\
 {
-#define BRENDPLUGIN(name) };											\
+
+#ifdef _WIN32
+#include <Windows.h>
+#define BRENDPLUGINIMPL(name) };										\
 BPLUGIN_EXPORT name* CreatePlugin()										\
 {																		\
 	return new name;													\
@@ -25,23 +26,14 @@ BPLUGIN_EXPORT name* CreatePlugin()										\
 BPLUGIN_EXPORT void DestroyPlugin(name* pPlugin)						\
 {																		\
 	delete pPlugin;														\
-}																		\
+}
+#define BRENDPLUGIN(name) BRENDPLUGINIMPL(name)							\
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)	\
 {																		\
 	return TRUE;														\
 }
 #elif __linux__
-#define BRBEGINPLUGIN(name) class name : public BetteRCon::Plugin		\
-{
-#define BRENDPLUGIN(name) };											\
-BPLUGIN_EXPORT name* CreatePlugin()										\
-{																		\
-	return new name;													\
-}																		\
-BPLUGIN_EXPORT void DestroyPlugin(name* pPlugin)						\
-{																		\
-	delete pPlugin;														\
-}
+#define BRENDPLUGIN(name) BRENDPLUGINIMPL(name)
 #endif
 
 // STL
