@@ -17,6 +17,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConConsole", "BetteRC
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConSamplePlugin", "BetteRConSamplePlugin\BetteRConSamplePlugin.vcxproj", "{9C000F57-4DC0-4D1F-A762-224A677511E9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
