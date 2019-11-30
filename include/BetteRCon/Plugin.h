@@ -88,12 +88,19 @@ namespace BetteRCon
 
 		// Registers the desired handler to be called every time an event is fired
 		void RegisterHandler(const std::string& eventName, EventHandler_t&& eventHandler) { m_eventHandlers.emplace(eventName, eventHandler); }
-	protected:
-		Server* m_pServer;
+
+		// If the plugin is enabled, schedules an action in the milliseconds from now
+		void ScheduleAction(Server::TimedAction_t&& timedAction, const size_t millisecondsFromNow) { if (IsEnabled() == true) m_pServer->ScheduleAction(std::move(timedAction), millisecondsFromNow); }
+
+		// If the plugin is enabled, attempts to send a command to the server, and calls recvCallback when the response is received.
+		// RecvCallback_t must not block, as it is called from the worker thread
+		void SendCommand(const std::vector<std::string>& command, Server::RecvCallback_t&& recvCallback) { if (IsEnabled() == true) m_pServer->SendCommand(command, std::move(recvCallback)); }
 	private:
 		bool m_enabled = false;
 
 		HandlerMap_t m_eventHandlers;
+
+		Server* m_pServer;
 	};
 }
 

@@ -37,14 +37,14 @@ BEGINPLUGIN(FastRoundStart)
 		m_cancelNextLevel = false;
 
 		// schedule the command for 30 seconds from now
-		m_pServer->ScheduleAction(
+		ScheduleAction(
 			[this] 
 		{
 			// the next round was started! abort!
 			if (m_cancelNextLevel == true)
 				return;
 
-			m_pServer->SendCommand({ "mapList.runNextRound" }, 
+			SendCommand({ "mapList.runNextRound" }, 
 				[](const BetteRCon::Server::ErrorCode_t& ec, const std::vector<std::string>& responseWords)
 			{
 				if (ec)

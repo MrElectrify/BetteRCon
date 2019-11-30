@@ -20,9 +20,9 @@ bool g_disconnected = false;
 
 int main(int argc, char* argv[])
 {
-	if (argc != 4)
+	if (argc < 4)
 	{
-		std::cout << "Usage: " << argv[0] << " [ip:string] [port:ushort] [password:string]\n";
+		std::cout << "Usage: " << argv[0] << " [ip:string] [port:ushort] [password:string] [plugins:string...]\n";
 		return 1;
 	}
 
@@ -121,6 +121,15 @@ int main(int argc, char* argv[])
 	{
 		std::cout << "Failed to login\n";
 		return 1;
+	}
+
+	// enable all of the plugins that are in the list
+	for (size_t i = 4; i < argc; ++i)
+	{
+		if (server.EnablePlugin(argv[i]) == true)
+			std::cout << "Enabled plugin " << argv[i] << '\n';
+		else
+			std::cerr << "Failed to enable plugin " << argv[i] << '\n';
 	}
 
 	// wait until we disconnect for some reason
