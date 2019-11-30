@@ -6,8 +6,30 @@
 BEGINPLUGIN(SamplePlugin)
 	CREATEPLUGIN(SamplePlugin)
 	{
+		// register the join handler that will be called every time player.onJoin is fired
 		RegisterHandler("player.onJoin", std::bind(&SamplePlugin::HandleJoin, this, std::placeholders::_1));
-		pServer->ScheduleAction([] { std::cout << "It has been 1000 milliseconds\n"; }, 1000);
+
+		// schedule an action for 1000 ms in the future, that will print that 1000 milliseconds have passed
+		pServer->ScheduleAction([] { std::cout << "[Sample Plugin]: It has been 1000 milliseconds\n"; }, 1000);
+
+		// retrieve the server's name
+		pServer->SendCommand({ "vars.serverName" }, 
+			[](const BetteRCon::Server::ErrorCode_t& ec, const std::vector<std::string>& words) 
+		{
+			if (ec)
+			{
+				std::cout << "[Sample Plugin]: Failed to get server name: " << ec << '\n';
+				return;
+			}
+
+			if (words.front() != "OK")
+			{
+				std::cout << "[Sample Plugin]: Bad response: " << words.front() << '\n';
+				return;
+			}
+
+			std::cout << "[Sample Plugin]: Server name: " << words.at(1) << '\n';
+		});
 	}
 
 	AUTHORPLUGIN("MrElectrify")
@@ -17,17 +39,17 @@ BEGINPLUGIN(SamplePlugin)
 	virtual void Enable()
 	{
 		Plugin::Enable();
-		std::cout << "Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		std::cout << "[Sample Plugin]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	virtual void Disable()
 	{
 		Plugin::Disable();
-		std::cout << "Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		std::cout << "[Sample Plugin]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	void HandleJoin(const std::vector<std::string>& eventWords)
 	{
-		std::cout << "Player " << eventWords.at(1) << " joined\n";
+		std::cout << "[Sample Plugin]: Player " << eventWords.at(1) << " joined\n";
 	}
 ENDPLUGIN(SamplePlugin)
