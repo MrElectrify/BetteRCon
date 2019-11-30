@@ -21,6 +21,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BetteRConSamplePlugin", "Be
 		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FastRoundStart", "FastRoundStart\FastRoundStart.vcxproj", "{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E0D10A0A-1335-4E01-8AF2-EFD25973FBFA} = {E0D10A0A-1335-4E01-8AF2-EFD25973FBFA}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -61,6 +66,14 @@ Global
 		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x64.Build.0 = Release|x64
 		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x86.ActiveCfg = Release|Win32
 		{9C000F57-4DC0-4D1F-A762-224A677511E9}.Release|x86.Build.0 = Release|Win32
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Debug|x64.ActiveCfg = Debug|x64
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Debug|x64.Build.0 = Debug|x64
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Debug|x86.ActiveCfg = Debug|Win32
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Debug|x86.Build.0 = Debug|Win32
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Release|x64.ActiveCfg = Release|x64
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Release|x64.Build.0 = Release|x64
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Release|x86.ActiveCfg = Release|Win32
+		{9FB00159-B3E5-482B-8A4C-BA0482B86F6C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -11,7 +11,7 @@
 *.userprefs
 
 lib/
-*.plugin
+plugins/
 
 # Build results
 [Dd]ebug/

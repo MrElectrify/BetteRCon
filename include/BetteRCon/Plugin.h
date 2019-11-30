@@ -88,12 +88,12 @@ namespace BetteRCon
 
 		// Registers the desired handler to be called every time an event is fired
 		void RegisterHandler(const std::string& eventName, EventHandler_t&& eventHandler) { m_eventHandlers.emplace(eventName, eventHandler); }
+	protected:
+		Server* m_pServer;
 	private:
 		bool m_enabled = false;
 
 		HandlerMap_t m_eventHandlers;
-
-		Server* m_pServer;
 	};
 }
 
