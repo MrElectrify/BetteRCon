@@ -4,25 +4,30 @@
 
 // Sample Plugin Definition
 BEGINPLUGIN(SamplePlugin)
-public:
-	CREATEPLUGIN
-	(SamplePlugin,
-		RegisterHandler("player.onJoin", 
-			[](const std::vector<std::string>& eventWords)
-		{
-			std::cout << "Player " << eventWords.at(1) << " joined\n";
-		});
-	)
+	CREATEPLUGIN(SamplePlugin)
+	{
+		RegisterHandler("player.onJoin", std::bind(&SamplePlugin::HandleJoin, this, std::placeholders::_1));
+		pServer->ScheduleAction([] { std::cout << "It has been 1000 milliseconds\n"; }, 1000);
+	}
 
 	AUTHORPLUGIN("MrElectrify")
 	NAMEPLUGIN("Sample Plugin")
 	VERSIONPLUGIN("v1.0.0")
 
-	ENABLEPLUGIN(
+	virtual void Enable()
+	{
+		Plugin::Enable();
 		std::cout << "Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	)
+	}
 
-	DISABLEPLUGIN(
+	virtual void Disable()
+	{
+		Plugin::Disable();
 		std::cout << "Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	)
+	}
+
+	void HandleJoin(const std::vector<std::string>& eventWords)
+	{
+		std::cout << "Player " << eventWords.at(1) << " joined\n";
+	}
 ENDPLUGIN(SamplePlugin)

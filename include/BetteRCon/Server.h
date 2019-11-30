@@ -91,6 +91,7 @@ namespace BetteRCon
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
 		using ServerInfoCallback_t = std::function<void(const ServerInfo& info)>;
+		using TimedAction_t = std::function<void()>;
 		using Worker_t = Connection_t::Worker_t;
 		// Default constructor. Creates thread
 		Server();
@@ -128,6 +129,11 @@ namespace BetteRCon
 
 		// Disables a plugin by name. Returns true on success
 		bool DisablePlugin(const std::string& pluginName);
+
+		// Schedules an action to be executed in the future
+		void ScheduleAction(TimedAction_t&& timedAction, const std::chrono::system_clock::duration& timeFromNow);
+		// Schedules an action to be executed in the future
+		void ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow);
 
 		~Server();
 	private:

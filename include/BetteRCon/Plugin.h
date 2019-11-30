@@ -17,7 +17,8 @@
 #endif
 
 #define BEGINPLUGIN(name) class name : public BetteRCon::Plugin			\
-{
+{																		\
+public:
 #define ENDPLUGINIMPL(name) ~name() {}									\
 };																		\
 PLUGIN_EXPORT name* CreatePlugin(BetteRCon::Server* pServer)			\
@@ -40,14 +41,11 @@ BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)	\
 #define ENDPLUGIN(name) ENDPLUGINIMPL(name)
 #endif
 
-#define CREATEPLUGIN(name, tasks) name(BetteRCon::Server* pServer) : Plugin(pServer) { tasks }
+#define CREATEPLUGIN(name) name(BetteRCon::Server* pServer) : Plugin(pServer)
 
 #define AUTHORPLUGIN(authorName) virtual std::string_view GetPluginAuthor() { return authorName; }
 #define NAMEPLUGIN(name) virtual std::string_view GetPluginName() { return name; }
 #define VERSIONPLUGIN(version) virtual std::string_view GetPluginVersion() { return version; }
-
-#define ENABLEPLUGIN(tasks) virtual void Enable() { Plugin::Enable(); tasks }
-#define DISABLEPLUGIN(tasks) virtual void Disable() { Plugin::Disable(); tasks }
 
 // STL
 #include <functional>

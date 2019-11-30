@@ -203,6 +203,25 @@ bool Server::DisablePlugin(const std::string& pluginName)
 	return true;
 }
 
+void Server::ScheduleAction(TimedAction_t&& timedAction, const std::chrono::system_clock::duration& timeFromNow)
+{
+	// create the timer
+	auto pTimer = std::make_shared<asio::steady_timer>(m_worker);
+	pTimer->expires_from_now(timeFromNow);
+
+	pTimer->async_wait(
+		[timedAction = std::move(timedAction), pTimer] (const ErrorCode_t& ec)
+	{
+		if (!ec)
+			timedAction();
+	});
+}
+
+void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow)
+{
+	ScheduleAction(std::move(timedAction), std::chrono::milliseconds(millisecondsFromNow));
+}
+
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
