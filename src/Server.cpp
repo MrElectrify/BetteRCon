@@ -349,7 +349,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
-	if (serverInfo.size() < 25)
+	if (serverInfo.size() < 24)
 	{
 		// disconnect, the server is not OK
 		ErrorCode_t ec;
@@ -392,8 +392,8 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		m_serverInfo.m_region = serverInfo.at(20 + offset);
 		m_serverInfo.m_closestPingSite = serverInfo.at(21 + offset);
 		m_serverInfo.m_country = serverInfo.at(22 + offset);
-		m_serverInfo.m_blazePlayerCount = stoi(serverInfo.at(23 + offset));
-		m_serverInfo.m_blazeGameState = serverInfo.at(24 + offset);
+		m_serverInfo.m_blazePlayerCount = (serverInfo.size() >= 25) ? stoi(serverInfo.at(23 + offset)) : 0;
+		m_serverInfo.m_blazeGameState = serverInfo.at((serverInfo.size() >= 25) ? (24 + offset) : (23 + offset));
 	}
 	catch (const std::exception& e)
 	{
