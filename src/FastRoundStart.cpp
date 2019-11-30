@@ -10,7 +10,7 @@ BEGINPLUGIN(FastRoundStart)
 		RegisterHandler("server.onRoundOver", std::bind(&FastRoundStart::HandleRoundOver, this, std::placeholders::_1));
 		
 		// if the next level starts for some other reason (like an admin starts it) then cancel the current request
-		RegisterHandler("server.onLevelLoaded", std::bind(&FastRoundStart::HandleRoundOver, this, std::placeholders::_1));
+		RegisterHandler("server.onLevelLoaded", std::bind(&FastRoundStart::HandleLevelLoaded, this, std::placeholders::_1));
 	}
 
 	AUTHORPLUGIN("MrElectrify")
@@ -50,12 +50,13 @@ BEGINPLUGIN(FastRoundStart)
 				if (ec)
 				{
 					std::cerr << "[FastRoundStart]: Error running next round: " << ec.message() << '\n';
-					return 1;
+					return;
 				}
 
 				if (responseWords.front() != "OK")
 				{
 					std::cerr << "[FastRoundStart]: Bad response while running next round: " << responseWords.front() << '\n';
+					return;
 				}
 
 				std::cout << "[FastRoundStart]: Ran next round successfully\n";
