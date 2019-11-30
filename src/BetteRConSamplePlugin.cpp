@@ -12,11 +12,11 @@ public:
 		{
 			std::cout << "Player " << eventWords.at(1) << " joined\n";
 		});
-	);
+	)
 
-	AUTHORPLUGIN("MrElectrify");
-	NAMEPLUGIN("Sample Plugin");
-	VERSIONPLUGIN("v1.0.0");
+	AUTHORPLUGIN("MrElectrify")
+	NAMEPLUGIN("Sample Plugin")
+	VERSIONPLUGIN("v1.0.0")
 
 	ENABLEPLUGIN(
 		std::cout << "Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
