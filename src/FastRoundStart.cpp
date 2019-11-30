@@ -1,10 +1,10 @@
 #include <BetteRCon/Plugin.h>
 
-// Fast Round Start start the next round 30 seconds after the end of the last round
+// Fast Round Start start the next round 20 seconds after the end of the last round
 BEGINPLUGIN(FastRoundStart)
 	CREATEPLUGIN(FastRoundStart)
 	{
-		// every time server.onRoudOver fires, start a timer for 30 seconds later that will start the next round
+		// every time server.onRoudOver fires, start a timer for 20 seconds later that will start the next round
 		RegisterHandler("server.onRoundOver", std::bind(&FastRoundStart::HandleRoundOver, this, std::placeholders::_1));
 		
 		// if the next level starts for some other reason (like an admin starts it) then cancel the current request
@@ -34,7 +34,9 @@ BEGINPLUGIN(FastRoundStart)
 
 		m_cancelNextLevel = false;
 
-		// schedule the command for 30 seconds from now
+		BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Round is over. Scheduling command for 20 seconds from now\n";
+
+		// schedule the command for 20 seconds from now
 		ScheduleAction(
 			[this] 
 		{
@@ -59,7 +61,7 @@ BEGINPLUGIN(FastRoundStart)
 
 				BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Ran next round successfully\n";
 			});
-		}, 30000);
+		}, 20000);
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventWords)
