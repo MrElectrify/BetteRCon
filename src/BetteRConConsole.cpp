@@ -1,4 +1,5 @@
 #include <BetteRCon/Server.h>
+#include <BetteRCon/Internal/Log.h>
 
 #include <condition_variable>
 #include <functional>
@@ -41,7 +42,7 @@ int main(int argc, char* argv[])
 
 	if (ec)
 	{
-		std::cout << "Failed to connect: " << ec.message() << '\n';
+		BetteRCon::Internal::g_stdErrLog << "Failed to connect: " << ec.message() << '\n';
 		return 1;
 	}
 
@@ -66,7 +67,7 @@ int main(int argc, char* argv[])
 	},
 		[](const Server::ErrorCode_t& ec)
 	{
-		std::cout << "Disconnected for reason " << ec.message() << '\n';
+		BetteRCon::Internal::g_stdOutLog << "Disconnected for reason " << ec.message() << '\n';
 
 		// notify the main thread that we disconnected
 		std::lock_guard lock(g_mutex);
@@ -79,16 +80,16 @@ int main(int argc, char* argv[])
 		if (load == true)
 		{
 			if (success == true)
-				std::cout << "Loaded plugin " << pluginName << '\n';
+				BetteRCon::Internal::g_stdOutLog << "Loaded plugin " << pluginName << '\n';
 			else
-				std::cout << "Failed to load plugin " << pluginName << ": " << failReason << '\n';
+				BetteRCon::Internal::g_stdErrLog << "Failed to load plugin " << pluginName << ": " << failReason << '\n';
 		}
 		else
-			std::cout << "Unloaded plugin " << pluginName << '\n';
+			BetteRCon::Internal::g_stdOutLog << "Unloaded plugin " << pluginName << '\n';
 	},
 		[](const std::vector<std::string>& eventWords)
 	{
-		std::cout << "Event " << eventWords.front() << ": ";
+		BetteRCon::Internal::g_stdOutLog << "Event " << eventWords.front() << ": ";
 
 		// special case for punkBuster.onMessage
 		if (eventWords.front() == "punkBuster.onMessage")
@@ -107,7 +108,7 @@ int main(int argc, char* argv[])
 	},
 		[](const Server::ServerInfo& serverInfo)
 	{
-		std::cout << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
+		BetteRCon::Internal::g_stdOutLog << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
 	},
 		[](const Server::PlayerInfo& playerInfo) {});
 
@@ -119,7 +120,7 @@ int main(int argc, char* argv[])
 
 	if (g_loggedIn == false)
 	{
-		std::cout << "Failed to login\n";
+		BetteRCon::Internal::g_stdOutLog << "Failed to login\n";
 		return 1;
 	}
 
@@ -127,9 +128,9 @@ int main(int argc, char* argv[])
 	for (size_t i = 4; i < argc; ++i)
 	{
 		if (server.EnablePlugin(argv[i]) == true)
-			std::cout << "Enabled plugin " << argv[i] << '\n';
+			BetteRCon::Internal::g_stdOutLog << "Enabled plugin " << argv[i] << '\n';
 		else
-			std::cerr << "Failed to enable plugin " << argv[i] << '\n';
+			BetteRCon::Internal::g_stdErrLog << "Failed to enable plugin " << argv[i] << '\n';
 	}
 
 	// wait until we disconnect for some reason

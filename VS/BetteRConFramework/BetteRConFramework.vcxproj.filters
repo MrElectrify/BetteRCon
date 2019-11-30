@@ -62,6 +62,9 @@
     <ClInclude Include="..\..\include\BetteRCon\Plugin.h">
       <Filter>Header Files\BetteRCon</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\BetteRCon\Internal\Log.h">
+      <Filter>Header Files\BetteRCon\Internal</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\..\Design.txt" />

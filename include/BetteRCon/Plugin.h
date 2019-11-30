@@ -8,6 +8,7 @@
 
  // BetteRCon
 #include <BetteRCon/Server.h>
+#include <BetteRCon/Internal/Log.h>
 
 // PreProcessor Macros
 #ifdef _WIN32

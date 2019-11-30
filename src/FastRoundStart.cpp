@@ -1,7 +1,5 @@
 #include <BetteRCon/Plugin.h>
 
-#include <iostream>
-
 // Fast Round Start start the next round 30 seconds after the end of the last round
 BEGINPLUGIN(FastRoundStart)
 	CREATEPLUGIN(FastRoundStart)
@@ -20,13 +18,13 @@ BEGINPLUGIN(FastRoundStart)
 	virtual void Enable()
 	{
 		Plugin::Enable();
-		std::cout << "[FastRoundStart]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	virtual void Disable()
 	{
 		Plugin::Disable();
-		std::cout << "[FastRoundStart]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	void HandleRoundOver(const std::vector<std::string>& eventWords)
@@ -49,17 +47,17 @@ BEGINPLUGIN(FastRoundStart)
 			{
 				if (ec)
 				{
-					std::cerr << "[FastRoundStart]: Error running next round: " << ec.message() << '\n';
+					BetteRCon::Internal::g_stdErrLog << "[FastRoundStart]: Error running next round: " << ec.message() << '\n';
 					return;
 				}
 
 				if (responseWords.front() != "OK")
 				{
-					std::cerr << "[FastRoundStart]: Bad response while running next round: " << responseWords.front() << '\n';
+					BetteRCon::Internal::g_stdErrLog << "[FastRoundStart]: Bad response while running next round: " << responseWords.front() << '\n';
 					return;
 				}
 
-				std::cout << "[FastRoundStart]: Ran next round successfully\n";
+				BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Ran next round successfully\n";
 			});
 		}, 30000);
 	}

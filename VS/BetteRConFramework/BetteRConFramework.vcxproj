@@ -150,6 +150,7 @@
     <ClInclude Include="..\..\include\BetteRCon\Internal\Connection.h" />
     <ClInclude Include="..\..\include\BetteRCon\Internal\ErrorCode.h" />
     <ClInclude Include="..\..\include\BetteRCon\Internal\Packet.h" />
+    <ClInclude Include="..\..\include\BetteRCon\Internal\Log.h" />
     <ClInclude Include="..\..\include\BetteRCon\Plugin.h" />
     <ClInclude Include="..\..\include\BetteRCon\Server.h" />
   </ItemGroup>

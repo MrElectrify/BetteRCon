@@ -18,17 +18,17 @@ BEGINPLUGIN(SamplePlugin)
 		{
 			if (ec)
 			{
-				std::cerr << "[Sample Plugin]: Failed to get server name: " << ec.message() << '\n';
+				BetteRCon::Internal::g_stdErrLog << "[Sample Plugin]: Failed to get server name: " << ec.message() << '\n';
 				return;
 			}
 
 			if (words.front() != "OK")
 			{
-				std::cout << "[Sample Plugin]: Bad response: " << words.front() << '\n';
+				BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Bad response: " << words.front() << '\n';
 				return;
 			}
 
-			std::cout << "[Sample Plugin]: Server name: " << words.at(1) << '\n';
+			BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Server name: " << words.at(1) << '\n';
 		});
 	}
 
@@ -39,17 +39,17 @@ BEGINPLUGIN(SamplePlugin)
 	virtual void Enable()
 	{
 		Plugin::Enable();
-		std::cout << "[Sample Plugin]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	virtual void Disable()
 	{
 		Plugin::Disable();
-		std::cout << "[Sample Plugin]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	void HandleJoin(const std::vector<std::string>& eventWords)
 	{
-		std::cout << "[Sample Plugin]: Player " << eventWords.at(1) << " joined\n";
+		BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Player " << eventWords.at(1) << " joined\n";
 	}
 ENDPLUGIN(SamplePlugin)

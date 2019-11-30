@@ -1,4 +1,5 @@
 #include <BetteRCon/Server.h>
+#include <BetteRCon/Internal/Log.h>
 
 #include <condition_variable>
 #include <functional>
@@ -40,7 +41,7 @@ int main(int argc, char* argv[])
 
 		if (ec)
 		{
-			std::cout << "Failed to connect: " << ec.message() << '\n';
+			BetteRCon::Internal::g_stdErrLog << "Failed to connect: " << ec.message() << '\n';
 			return 1;
 		}
 
@@ -48,7 +49,7 @@ int main(int argc, char* argv[])
 		server.RegisterCallback("player.onJoin",
 			[](const std::vector<std::string>& args)
 		{
-			std::cout << "OnJoin: " << args.at(1) << '\n';
+			BetteRCon::Internal::g_stdOutLog << "OnJoin: " << args.at(1) << '\n';
 		});
 
 		server.Login(password, [&server](const Server::LoginResult loginRes)
@@ -76,16 +77,16 @@ int main(int argc, char* argv[])
 			if (load == true)
 			{
 				if (success == true)
-					std::cout << "Loaded plugin " << pluginName << '\n';
+					BetteRCon::Internal::g_stdOutLog << "Loaded plugin " << pluginName << '\n';
 				else
-					std::cout << "Failed to load plugin " << pluginName << ": " << failReason << '\n';
+					BetteRCon::Internal::g_stdErrLog << "Failed to load plugin " << pluginName << ": " << failReason << '\n';
 			}
 			else
-				std::cout << "Unloaded plugin " << pluginName << '\n';
+				BetteRCon::Internal::g_stdOutLog << "Unloaded plugin " << pluginName << '\n';
 		},
 			[](const std::vector<std::string>& eventWords)
 		{
-			std::cout << "Event " << eventWords.front() << ": ";
+			BetteRCon::Internal::g_stdOutLog << "Event " << eventWords.front() << ": ";
 
 			// special case for punkBuster.onMessage
 			if (eventWords.front() == "punkBuster.onMessage")
@@ -104,7 +105,7 @@ int main(int argc, char* argv[])
 		},
 			[](const Server::ServerInfo& serverInfo)
 		{
-			std::cout << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
+			BetteRCon::Internal::g_stdOutLog << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
 		}, 
 			[] (const Server::PlayerInfo& playerInfo) {});
 
@@ -116,14 +117,14 @@ int main(int argc, char* argv[])
 
 		if (g_loggedIn == false)
 		{
-			std::cout << "Failed to login\n";
+			BetteRCon::Internal::g_stdErrLog << "Failed to login\n";
 			return 1;
 		}
 
 		// enable the plugin
 		if (server.EnablePlugin("Sample Plugin") == false)
 		{
-			std::cout << "Failed to enable plugin\n";
+			BetteRCon::Internal::g_stdErrLog << "Failed to enable plugin\n";
 			return 1;
 		}
 
@@ -135,11 +136,11 @@ int main(int argc, char* argv[])
 
 		if (auto e = server.GetLastErrorCode())
 		{
-			std::cout << "Error on exit: " << e.message() << '\n';
+			BetteRCon::Internal::g_stdErrLog << "Error on exit: " << e.message() << '\n';
 		}
 	}
 
-	std::cout << "Testing complete\n";
+	BetteRCon::Internal::g_stdOutLog << "Testing complete\n";
 
 	return 0;
 }
