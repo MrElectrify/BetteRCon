@@ -1,5 +1,5 @@
-#ifndef BETTERCON_BETTERCONSERVER_H_
-#define BETTERCON_BETTERCONSERVER_H_
+#ifndef BETTERCON_SERVER_H_
+#define BETTERCON_SERVER_H_
 
 /*
  *	BetteRCon Server Main
@@ -8,7 +8,6 @@
 
  // BetteRCon
 #include <BetteRCon/Internal/Connection.h>
-#include <BetteRCon/Plugin.h>
 
 // STL
 #include <functional>
@@ -27,6 +26,8 @@
 
 namespace BetteRCon
 {
+	class Plugin;
+
 	/*
 	 *	BetteRConServer is a class signifying a connection to a Battlefield server.
 	 *	It encompasses the connection itself, the thread, layer, player management,
@@ -140,7 +141,7 @@ namespace BetteRCon
 		void HandleServerInfoTimerExpire(const ErrorCode_t& ec);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
-		using PluginFactory_t = std::add_pointer_t<Plugin*()>;
+		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
 
 		void LoadPlugins();
 

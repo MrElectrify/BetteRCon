@@ -6,38 +6,52 @@
  *	11/12/19 16:22
  */
 
+ // BetteRCon
+#include <BetteRCon/Server.h>
+
 // PreProcessor Macros
 #ifdef _WIN32
-#define BPLUGIN_EXPORT __declspec(dllexport) extern "C"
+#define PLUGIN_EXPORT __declspec(dllexport) extern "C"
 #elif __GNUC__
-#define BPLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
+#define PLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
-#define BRBEGINPLUGIN(name) class name : public BetteRCon::Plugin		\
+#define BEGINPLUGIN(name) class name : public BetteRCon::Plugin			\
 {
-#define BRENDPLUGINIMPL(name) };										\
-BPLUGIN_EXPORT name* CreatePlugin()										\
+#define ENDPLUGINIMPL(name) ~name() {}									\
+};																		\
+PLUGIN_EXPORT name* CreatePlugin(BetteRCon::Server* pServer)			\
 {																		\
-	return new name;													\
+	return new name(pServer);											\
 }																		\
-BPLUGIN_EXPORT void DestroyPlugin(name* pPlugin)						\
+PLUGIN_EXPORT void DestroyPlugin(name* pPlugin)							\
 {																		\
 	delete pPlugin;														\
 }
 
 #ifdef _WIN32
 #include <Windows.h>
-#define BRENDPLUGIN(name) BRENDPLUGINIMPL(name)							\
+#define ENDPLUGIN(name) ENDPLUGINIMPL(name)								\
 BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)	\
 {																		\
 	return TRUE;														\
 }
 #elif __linux__
-#define BRENDPLUGIN(name) BRENDPLUGINIMPL(name)
+#define ENDPLUGIN(name) ENDPLUGINIMPL(name)
 #endif
+
+#define CREATEPLUGIN(name, tasks) name(BetteRCon::Server* pServer) : Plugin(pServer) { tasks }
+
+#define AUTHORPLUGIN(authorName) virtual std::string_view GetPluginAuthor() { return authorName; }
+#define NAMEPLUGIN(name) virtual std::string_view GetPluginName() { return name; }
+#define VERSIONPLUGIN(version) virtual std::string_view GetPluginVersion() { return version; }
+
+#define ENABLEPLUGIN(tasks) virtual void Enable() { Plugin::Enable(); tasks }
+#define DISABLEPLUGIN(tasks) virtual void Disable() { Plugin::Disable(); tasks }
 
 // STL
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -51,6 +65,10 @@ namespace BetteRCon
 	public: 
 		using EventHandler_t = std::function<void(const std::vector<std::string>& eventWords)>;
 		using HandlerMap_t = std::unordered_map<std::string, EventHandler_t>;
+		using Worker_t = asio::io_context;
+
+		// Creates a plugin with the server
+		Plugin(Server* pServer) : m_pServer(pServer) {}
 
 		// Returns the name of the plugin's author
 		virtual std::string_view GetPluginAuthor() = 0;
@@ -76,6 +94,8 @@ namespace BetteRCon
 		bool m_enabled = false;
 
 		HandlerMap_t m_eventHandlers;
+
+		Server* m_pServer;
 	};
 }
 

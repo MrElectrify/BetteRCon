@@ -1,3 +1,4 @@
+#include <BetteRCon/Plugin.h>
 #include <BetteRCon/Server.h>
 #include <MD5.h>
 
@@ -449,7 +450,7 @@ void Server::LoadPlugins()
 		}
 
 		// we have a valid plugin. create an instance
-		auto pPlugin = fnPluginFactory();
+		auto pPlugin = fnPluginFactory(this);
 
 		if (pPlugin == nullptr)
 		{
