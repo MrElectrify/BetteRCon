@@ -76,7 +76,16 @@ namespace BetteRCon
 		};
 		struct PlayerInfo
 		{
-
+			std::string name;
+			std::string GUID;
+			uint8_t teamId;
+			uint8_t squadId;
+			uint32_t kills;
+			uint32_t deaths;
+			uint32_t score;
+			uint8_t rank;
+			uint16_t ping;
+			std::chrono::system_clock::time_point firstSeen;
 		};
 
 		using Connection_t = Internal::Connection;
@@ -143,9 +152,6 @@ namespace BetteRCon
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
 
-		void HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::string>& serverInfo);
-		void HandleServerInfoTimerExpire(const ErrorCode_t& ec);
-
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
 
@@ -163,6 +169,9 @@ namespace BetteRCon
 		ServerInfo m_serverInfo;
 		asio::steady_timer m_serverInfoTimer;
 
+		void HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::string>& serverInfo);
+		void HandleServerInfoTimerExpire(const ErrorCode_t& ec);
+
 		// callbacks
 		DisconnectCallback_t m_disconnectCallback;
 		EventCallback_t m_eventCallback;
@@ -177,6 +186,14 @@ namespace BetteRCon
 			PluginDestructor_t pDestructor;
 		};
 		std::unordered_map<std::string, PluginInfo> m_plugins;
+
+		// player info
+		// all players		teamIndex					playerName					playerInfo
+		std::unordered_map<uint8_t, std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>> m_teams;
+		asio::steady_timer m_playerInfoTimer;
+
+		void HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerList);
+		void HandlePlayerListTimerExpire(const ErrorCode_t& ec);
 	};
 }
 
