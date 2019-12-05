@@ -20,7 +20,7 @@
 #define BEGINPLUGIN(name) class name : public BetteRCon::Plugin			\
 {																		\
 public:
-#define ENDPLUGINIMPL(name) ~name() {}									\
+#define ENDPLUGINIMPL(name) virtual ~name() {}							\
 };																		\
 PLUGIN_EXPORT name* CreatePlugin(BetteRCon::Server* pServer)			\
 {																		\

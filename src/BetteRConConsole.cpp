@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 	{
 		BetteRCon::Internal::g_stdOutLog << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
 	},
-		[](const Server::PlayerInfo& playerInfo) {});
+		[](const Server::PlayerInfo&) {});
 
 	{
 		// wait for the login response
@@ -125,7 +125,7 @@ int main(int argc, char* argv[])
 	}
 
 	// enable all of the plugins that are in the list
-	for (size_t i = 4; i < argc; ++i)
+	for (int i = 4; i < argc; ++i)
 	{
 		if (server.EnablePlugin(argv[i]) == true)
 			BetteRCon::Internal::g_stdOutLog << "Enabled plugin " << argv[i] << '\n';
