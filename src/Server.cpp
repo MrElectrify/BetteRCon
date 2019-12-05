@@ -28,7 +28,7 @@ Server::Server()
 	: m_connection(m_worker, 
 		std::bind(&Server::HandleEvent, this, 
 			std::placeholders::_1, std::placeholders::_2)),
-	m_serverInfoTimer(m_worker) 
+	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker)
 {
 	// initialize all serverInfo stuff to 0
 	m_serverInfo.m_playerCount = 0;
@@ -87,7 +87,7 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	m_eventCallback = std::move(eventCallback);
 	m_pluginCallback = std::move(pluginCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
-	// m_playerInfoCallback = std::move(playerInfoCallback);
+	m_playerInfoCallback = std::move(playerInfoCallback);
 }
 
 void Server::Disconnect()
@@ -316,6 +316,11 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			&Server::HandleServerInfoTimerExpire, 
 			this, std::placeholders::_1));
 
+		// and the playerInfoLoop
+		m_playerInfoTimer.async_wait(std::bind(
+			&Server::HandlePlayerListTimerExpire,
+			this, std::placeholders::_1));
+
 		// load the plugins
 		LoadPlugins();
 
@@ -331,6 +336,67 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 	{
 		// something strange happened
 		return loginCallback(LoginResult_Unknown);
+	}
+}
+
+void Server::LoadPlugins()
+{
+	// make sure the plugins directory exists
+	if (std::filesystem::is_directory("plugins/") == false)
+		return;
+
+	// iterate the plugins directory
+	for (const auto& file : std::filesystem::directory_iterator("plugins/"))
+	{
+		if (file.is_directory() == true)
+			continue;
+
+		auto pathStr = file.path().string();
+		if (pathStr.size() < sizeof(".plugin") - 1)
+			continue;
+
+		// invalid extension
+		if (pathStr.substr(pathStr.size() - sizeof(".plugin") + 1) != ".plugin")
+			continue;
+
+		auto hPlugin = BLoadLibrary(file.path().string().c_str());
+
+		if (hPlugin == nullptr)
+		{
+			m_pluginCallback(pathStr, true, false, "Failed to open file");
+			continue;
+		}
+
+		auto fnPluginFactory = reinterpret_cast<PluginFactory_t>(BFindFunction(hPlugin, "CreatePlugin"));
+
+		if (fnPluginFactory == nullptr)
+		{
+			m_pluginCallback(pathStr, true, false, "Failed to find CreatePlugin");
+			continue;
+		}
+
+		auto fnPluginDestructor = reinterpret_cast<PluginDestructor_t>(BFindFunction(hPlugin, "DestroyPlugin"));
+
+		if (fnPluginDestructor == nullptr)
+		{
+			m_pluginCallback(pathStr, true, false, "Failed to find DestroyPlugin");
+			continue;
+		}
+
+		// we have a valid plugin. create an instance
+		auto pPlugin = fnPluginFactory(this);
+
+		if (pPlugin == nullptr)
+		{
+			m_pluginCallback(pathStr, true, false, "CreatePlugin returned nullptr");
+			continue;
+		}
+
+		// add the plugin to the map
+		m_plugins.emplace(pPlugin->GetPluginName(), PluginInfo{ hPlugin, pPlugin, fnPluginDestructor });
+
+		// call the callback
+		m_pluginCallback(pPlugin->GetPluginName().data(), true, true, "");
 	}
 }
 
@@ -424,63 +490,39 @@ void Server::HandleServerInfoTimerExpire(const ErrorCode_t& ec)
 		std::placeholders::_1, std::placeholders::_2));
 }
 
-void Server::LoadPlugins()
+void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerInfo)
 {
-	// make sure the plugins directory exists
-	if (std::filesystem::is_directory("plugins/") == false)
+	// connection will be closed automatically
+	if (ec)
 		return;
 
-	// iterate the plugins directory
-	for (const auto& file : std::filesystem::directory_iterator("plugins/"))
+	if (playerInfo.at(0) != "OK")
 	{
-		if (file.is_directory() == true)
-			continue;
-
-		auto pathStr = file.path().string();
-		if (pathStr.size() < sizeof(".plugin") - 1)
-			continue;
-
-		// invalid extension
-		if (pathStr.substr(pathStr.size() - sizeof(".plugin") + 1) != ".plugin")
-			continue;
-
-		auto hPlugin = BLoadLibrary(file.path().string().c_str());
-
-		if (hPlugin == nullptr)
-		{
-			m_pluginCallback(pathStr, true, false, "Failed to open file");
-			continue;
-		}
-
-		auto fnPluginFactory = reinterpret_cast<PluginFactory_t>(BFindFunction(hPlugin, "CreatePlugin"));
-
-		if (fnPluginFactory == nullptr)
-		{
-			m_pluginCallback(pathStr, true, false, "Failed to find CreatePlugin");
-			continue;
-		}
-
-		auto fnPluginDestructor = reinterpret_cast<PluginDestructor_t>(BFindFunction(hPlugin, "DestroyPlugin"));
-
-		if (fnPluginDestructor == nullptr)
-		{
-			m_pluginCallback(pathStr, true, false, "Failed to find DestroyPlugin");
-			continue;
-		}
-
-		// we have a valid plugin. create an instance
-		auto pPlugin = fnPluginFactory(this);
-
-		if (pPlugin == nullptr)
-		{
-			m_pluginCallback(pathStr, true, false, "CreatePlugin returned nullptr");
-			continue;
-		}
-
-		// add the plugin to the map
-		m_plugins.emplace(pPlugin->GetPluginName(), PluginInfo{ hPlugin, pPlugin, fnPluginDestructor });
-
-		// call the callback
-		m_pluginCallback(pPlugin->GetPluginName().data(), true, true, "");
+		// the server is not ok, disconnect
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
 	}
+
+	// process each player
+
+	// call the playerInfo callback
+	m_playerInfoCallback(m_players, m_teams);
+
+	// reset the timer and wait again
+	m_playerInfoTimer.expires_from_now(std::chrono::seconds(15));
+	m_playerInfoTimer.async_wait(std::bind(
+		&Server::HandlePlayerListTimerExpire,
+		this, std::placeholders::_1));
+}
+
+void Server::HandlePlayerListTimerExpire(const ErrorCode_t& ec)
+{
+	// the oepration was likely canceled. stop the loop
+	if (ec)
+		return;
+	
+	SendCommand({ "admin.listPlayers", "all" }, std::bind(
+		&Server::HandlePlayerList, this,
+		std::placeholders::_1, std::placeholders::_2));
 }

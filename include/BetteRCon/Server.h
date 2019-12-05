@@ -95,7 +95,10 @@ namespace BetteRCon
 		using EventCallback_t = std::function<void(const std::vector<std::string>& response)>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
-		using PlayerInfoCallback_t = std::function<void(const PlayerInfo& info)>;
+		using PlayerMap_t = std::unordered_map<std::string, PlayerInfo>;
+		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
+		using TeamSquadMap_t = std::unordered_map<uint8_t, std::unordered_map<uint8_t, std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>>>;
+		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamSquadMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
@@ -177,6 +180,7 @@ namespace BetteRCon
 		EventCallback_t m_eventCallback;
 		PluginCallback_t m_pluginCallback;
 		ServerInfoCallback_t m_serverInfoCallback;
+		PlayerInfoCallback_t m_playerInfoCallback;
 		
 		// plugins
 		struct PluginInfo
@@ -188,8 +192,9 @@ namespace BetteRCon
 		std::unordered_map<std::string, PluginInfo> m_plugins;
 
 		// player info
-		// all players		teamIndex					playerName					playerInfo
-		std::unordered_map<uint8_t, std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>> m_teams;
+		// we store as shared_ptrs with redundancy because we want fast accessing of teams and squads, as well as easy traversal of all players
+		PlayerMap_t m_players;
+		TeamSquadMap_t m_teams;
 		asio::steady_timer m_playerInfoTimer;
 
 		void HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerList);
