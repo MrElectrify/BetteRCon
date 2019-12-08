@@ -88,6 +88,9 @@ namespace BetteRCon
 			uint32_t score;
 			uint8_t rank;
 			uint16_t ping;
+			uint16_t type;
+			std::string ipAddress;
+			uint16_t port;
 			std::chrono::system_clock::time_point firstSeen;
 		};
 
@@ -98,9 +101,9 @@ namespace BetteRCon
 		using EventCallback_t = std::function<void(const std::vector<std::string>& response)>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
-		using PlayerMap_t = std::unordered_map<std::string, PlayerInfo>;
+		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
 		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
-		using TeamSquadMap_t = std::unordered_map<uint8_t, std::unordered_map<uint8_t, std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>>>;
+		using TeamSquadMap_t = std::unordered_map<uint8_t, std::unordered_map<uint8_t, PlayerMap_t>>;
 		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamSquadMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;

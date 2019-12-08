@@ -497,7 +497,9 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	if (ec)
 		return;
 
-	if (playerInfo.at(0) != "OK")
+	/// TODO: Make this whole section work independently of variable count per player
+	if (playerInfo.at(0) != "OK" ||
+		playerInfo.at(1) != "10")
 	{
 		// the server is not ok, disconnect
 		ErrorCode_t ec;
@@ -505,7 +507,46 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
+	/// TODO: Handle team/squad changes, disconnects, and round events that may affect players in teams
 	// process each player
+	constexpr size_t offset = 13;
+	constexpr size_t numVar = 10;
+	size_t playerCount = std::stoi(playerInfo.at(12));
+
+	for (size_t i = 0; i < playerCount; ++i)
+	{
+		std::string playerName = playerInfo.at(offset + numVar * i);
+		std::shared_ptr<PlayerInfo> pPlayer;
+
+		auto playerIt = m_players.find(playerName);
+		if (playerIt == m_players.end())
+			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+		else
+			pPlayer = playerIt->second;
+
+		pPlayer->name = playerName;
+		pPlayer->GUID = playerInfo.at(offset + numVar * i + 1);
+		pPlayer->teamId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 2)));
+		pPlayer->squadId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 3)));
+		pPlayer->kills = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 4)));
+		pPlayer->deaths = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 5)));
+		pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
+		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
+		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
+		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+
+		// check if they are in the team and squad list
+		auto teamIt = m_teams.find(pPlayer->teamId);
+		if (teamIt == m_teams.end())
+			teamIt = m_teams.emplace(pPlayer->teamId, std::unordered_map<uint8_t, PlayerMap_t>()).first;
+
+		auto squadIt = teamIt->second.find(pPlayer->squadId);
+		if (squadIt == teamIt->second.end())
+			squadIt = teamIt->second.emplace(pPlayer->squadId, PlayerMap_t()).first;
+
+		if (squadIt->second.find(playerName) == squadIt->second.end())
+			squadIt->second.emplace(std::move(playerName), std::move(pPlayer));
+	}
 
 	// call the playerInfo callback
 	m_playerInfoCallback(m_players, m_teams);
