@@ -22,6 +22,7 @@
 
 using BetteRCon::Server;
 
+const std::string Server::s_LoginResultStr[] = { "OK", "Password was not set by the server", "Password was incorrect", "Unknown" };
 int32_t Server::s_lastSequence = 0;
 
 Server::Server() 

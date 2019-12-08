@@ -49,15 +49,18 @@ int main(int argc, char* argv[])
 	server.Login(password, [&server](const Server::LoginResult loginRes)
 	{
 		// notify the main thread that we logged in
-		std::lock_guard lock(g_mutex);
+		std::unique_lock lock(g_mutex);
 
 		if (loginRes != Server::LoginResult_OK)
 		{
-			std::cout << "Failed to login to server: " << loginRes << '\n';
+			BetteRCon::Internal::g_stdErrLog << "Failed to login to server: " << Server::s_LoginResultStr[loginRes] << '\n';
 
+			// unlock the lock so that the disconnect callback can lock the mutex
+			lock.unlock();
 			// we don't care about the result, just disconnect
 			Server::ErrorCode_t ec;
 			server.Disconnect(ec);
+			lock.lock();
 		}
 		else
 			g_loggedIn = true;

@@ -41,8 +41,11 @@ namespace BetteRCon
 			LoginResult_OK,					// Success
 			LoginResult_PasswordNotSet,		// Password was not set by the server
 			LoginResult_InvalidPasswordHash,// Password was incorrect
-			LoginResult_Unknown				// Socket-related error, or unknown response. More information can be retreived by GetLastErrorCode()
+			LoginResult_Unknown,			// Socket-related error, or unknown response. More information can be retreived by GetLastErrorCode()
+			LoginResult_Count
 		};
+
+		static const std::string s_LoginResultStr[LoginResult_Count];
 
 		struct ServerInfo
 		{
