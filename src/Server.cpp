@@ -409,6 +409,8 @@ void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 
 	pPlayer->name = playerName;
 	pPlayer->firstSeen = std::chrono::system_clock::now();
+
+	AddPlayerToSquad(pPlayer, 0, 0);
 }
 
 void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
@@ -426,41 +428,11 @@ void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
 	const auto teamId = playerIt->second->teamId;
 	const auto squadId = playerIt->second->squadId;
 
+	// erase them from the team map
+	RemovePlayerFromSquad(playerIt->second, teamId, squadId);
+
 	// remove them from the player map
 	m_players.erase(playerIt);
-
-	// find them in the team map
-	auto teamIt = m_teams.find(teamId);
-	if (teamIt == m_teams.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid team\n";
-		return;
-	}
-
-	auto squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid squad\n";
-		return;
-	}
-
-	playerIt = squadIt->second.find(playerName);
-	if (playerIt == squadIt->second.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal team map\n";
-		return;
-	}
-
-	// remove them from the team map
-	squadIt->second.erase(playerIt);
-
-	// erase the squad if they were alone in their squad
-	if (squadIt->second.empty() == true)
-		teamIt->second.erase(squadIt);
-
-	// erase the team if it is empty
-	if (teamIt->second.empty() == true)
-		m_teams.erase(teamIt);
 }
 
 void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
@@ -470,13 +442,10 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 	const auto newTeamId = static_cast<uint8_t>(std::stoi(eventArgs.at(2)));
 	const auto newSquadId = static_cast<uint8_t>(std::stoi(eventArgs.at(3)));
 
-	// this could be the first time we see them
+	// the game likes to tell us after they leave that they switch teams, and this might also be the first we see of them
 	auto playerIt = m_players.find(playerName);
 	if (playerIt == m_players.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed teams but was not found in the internal player map\n";
 		return;
-	}
 
 	const auto& pPlayer = playerIt->second;
 	const auto teamId = pPlayer->teamId;
@@ -487,52 +456,11 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 		newSquadId == squadId)
 		return;
 
-	// find them in the team map
-	auto teamIt = m_teams.find(teamId);
-	if (teamIt == m_teams.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed squads/teams but had an invalid team\n";
-		return;
-	}
+	// remove them from their squad
+	RemovePlayerFromSquad(pPlayer, teamId, squadId);
 
-	auto squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed squads/teams but had an invalid squad\n";
-		return;
-	}
-
-	playerIt = squadIt->second.find(playerName);
-	if (playerIt == squadIt->second.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed squads/teams but was not found in the internal team map\n";
-		return;
-	}
-
-	// remove them from the team map
-	squadIt->second.erase(playerIt);
-
-	// erase the squad if they were alone in their squad
-	if (squadIt->second.empty() == true)
-		teamIt->second.erase(squadIt);
-
-	// erase the team if it is empty
-	if (teamIt->second.empty() == true)
-
-	// add them to the new team and squad
-	teamIt = m_teams.find(newTeamId);
-	if (teamIt == m_teams.end())
-		teamIt = m_teams.emplace(newTeamId, SquadMap_t()).first;
-
-	squadIt = teamIt->second.find(newSquadId);
-	if (squadIt == teamIt->second.end())
-		squadIt = teamIt->second.emplace(newSquadId, PlayerMap_t()).first;
-
-	// change their squad and teamId
-	pPlayer->teamId = newTeamId;
-	pPlayer->squadId = newSquadId;
-
-	squadIt->second.emplace(playerName, pPlayer);
+	// add them to the new squad
+	AddPlayerToSquad(pPlayer, newTeamId, newSquadId);
 }
 
 void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
@@ -625,6 +553,81 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 		pPlayer->pbGuid = pbGuid.substr(0, 32);
 		pPlayer->ipAddress = ipPort.substr(0, ipColon);
 		pPlayer->port = static_cast<uint16_t>(std::stoi(ipPort.substr(ipColon + 1)));
+	}
+}
+
+void Server::AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId)
+{
+	// add them to the new team and squad
+	auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+	{
+		/// DEBUG
+		BetteRCon::Internal::g_stdOutLog << "DEBUG: Creating team " << static_cast<uint16_t>(teamId) << '\n';
+		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
+	}
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		/// DEBUG
+		BetteRCon::Internal::g_stdOutLog << "DEBUG: Creating squad " << static_cast<uint16_t>(squadId) << " in team " << static_cast<uint16_t>(teamId) << '\n';
+		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
+	}
+
+	// change their squad and teamId
+	pPlayer->teamId = teamId;
+	pPlayer->squadId = squadId;
+
+	squadIt->second.emplace(pPlayer->name, pPlayer);
+
+	/// DEBUG
+	BetteRCon::Internal::g_stdOutLog << "DEBUG: Added player " << pPlayer->name << " to team " << static_cast<uint16_t>(teamId) << " and squad " << static_cast<uint16_t>(squadId) << '\n';
+}
+
+void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId)
+{
+	// find them in the team map
+	auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << pPlayer->name << " changed squads/teams but had an invalid team\n";
+		return;
+	}
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << pPlayer->name << " changed squads/teams but had an invalid squad\n";
+		return;
+	}
+
+	auto playerIt = squadIt->second.find(pPlayer->name);
+	if (playerIt == squadIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << pPlayer->name << " changed squads/teams but was not found in the internal team map\n";
+		return;
+	}
+
+	// remove them from the team map
+	squadIt->second.erase(playerIt);
+
+	/// DEBUG
+	BetteRCon::Internal::g_stdOutLog << "DEBUG: Removed " << pPlayer->name << " from team " << static_cast<uint16_t>(teamId) << " and squad " << static_cast<uint16_t>(squadId) << '\n';
+
+	// erase the squad if they were alone in their squad
+	if (squadIt->second.empty() == true)
+	{
+		/// DEBUG
+		BetteRCon::Internal::g_stdOutLog << "DEBUG: Deleting squad " << static_cast<uint16_t>(squadIt->first) << " from team " << static_cast<uint16_t>(teamIt->first) << '\n';
+		teamIt->second.erase(squadIt);
+	}
+
+	// erase the team if it is empty
+	if (teamIt->second.empty() == true)
+	{
+		BetteRCon::Internal::g_stdOutLog << "DEBUG: Deleting team " << static_cast<uint16_t>(teamIt->first) << '\n';
+		m_teams.erase(teamIt);
 	}
 }
 
@@ -836,17 +839,8 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
 		pPlayer->seenThisCheck = true;
 
-		// check if they are in the team and squad list
-		auto teamIt = m_teams.find(pPlayer->teamId);
-		if (teamIt == m_teams.end())
-			teamIt = m_teams.emplace(pPlayer->teamId, SquadMap_t()).first;
-
-		auto squadIt = teamIt->second.find(pPlayer->squadId);
-		if (squadIt == teamIt->second.end())
-			squadIt = teamIt->second.emplace(pPlayer->squadId, PlayerMap_t()).first;
-
-		if (squadIt->second.find(playerName) == squadIt->second.end())
-			squadIt->second.emplace(std::move(playerName), std::move(pPlayer));
+		// add the player to their squad
+		AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
 	}
 
 	for (auto playerIt = m_players.begin(); playerIt != m_players.end(); ++playerIt)
@@ -855,6 +849,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		if (playerIt->second->seenThisCheck == false)
 		{
 			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
+			__debugbreak();
 		}
 	}
 
