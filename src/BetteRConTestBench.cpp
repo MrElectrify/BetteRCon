@@ -110,6 +110,25 @@ int main(int argc, char* argv[])
 			[] (const Server::PlayerMap_t& players, const Server::TeamMap_t& teams) 
 		{
 			BetteRCon::Internal::g_stdOutLog << "PlayerInfo updated with " << players.size() << " players and " << teams.size() << " teams\n";
+			
+			// print the teams and squads
+			static const std::string squads[] = { "None", "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-Ray", "Yankee", "Zulu", "Haggard", "Sweetwater", "Preston", "Redford", "Faith", "Celeste",  };
+		
+			for (const auto& team : teams)
+			{
+				size_t teamCount = 0;
+				std::for_each(team.second.begin(), team.second.end(), [&teamCount](const decltype(team.second)::value_type& val) { teamCount += val.second.size(); });
+				std::cout << "Team " << static_cast<uint32_t>(team.first) << " (" << teamCount << " players, " << team.second.size() << " squads):\n";
+				for (const auto& squad : team.second)
+				{
+					std::cout << "\tSquad " << squads[squad.first] << " (" << squad.second.size() << " players):\n";
+					for (const auto& player : squad.second)
+					{
+						const auto& pPlayer = player.second;
+						std::cout << "\t\t" << pPlayer->name << " (rank " << static_cast<uint32_t>(pPlayer->rank) << "): " << pPlayer->score << " score, " << pPlayer->kills << " kills, " << pPlayer->deaths << " deaths, " << static_cast<float>(pPlayer->kills) / pPlayer->deaths << " K/D\n";
+					}
+				}
+			}
 		});
 
 		{
