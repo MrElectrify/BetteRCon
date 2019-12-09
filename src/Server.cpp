@@ -373,8 +373,8 @@ void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
 		return;
 	}
 
-	auto teamId = playerIt->second->teamId;
-	auto squadId = playerIt->second->squadId;
+	const auto teamId = playerIt->second->teamId;
+	const auto squadId = playerIt->second->squadId;
 
 	// remove them from the player map
 	m_players.erase(playerIt);
@@ -411,6 +411,75 @@ void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
 	// erase the team if it is empty
 	if (teamIt->second.empty() == true)
 		m_teams.erase(teamIt);
+}
+
+void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
+{
+	// onLeave means they left the game. Remove them from the list of players
+	const auto& playerName = eventArgs.at(1);
+	const auto newTeamId = static_cast<uint8_t>(std::stoi(eventArgs.at(2)));
+	const auto newSquadId = static_cast<uint8_t>(std::stoi(eventArgs.at(3)));
+
+	auto playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed teams but was not found in the internal player map\n";
+		return;
+	}
+
+	const auto& pPlayer = playerIt->second;
+	const auto teamId = pPlayer->teamId;
+	const auto squadId = pPlayer->squadId;
+
+	// find them in the team map
+	auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid team\n";
+		return;
+	}
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid squad\n";
+		return;
+	}
+
+	playerIt = squadIt->second.find(playerName);
+	if (playerIt == squadIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal team map\n";
+		return;
+	}
+
+	// remove them from the team map
+	squadIt->second.erase(playerIt);
+
+	// erase the squad if they were alone in their squad
+	if (squadIt->second.empty() == true)
+		teamIt->second.erase(squadIt);
+
+	// erase the team if it is empty
+	if (teamIt->second.empty() == true)
+		m_teams.erase(teamIt);
+
+	// add them to the new team and squad
+	teamIt = m_teams.find(newTeamId);
+	if (teamIt == m_teams.end())
+		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
+
+	squadIt = teamIt->second.find(newSquadId);
+	if (squadIt == teamIt->second.end())
+		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
+
+	squadIt->second.emplace(playerName, pPlayer);
+}
+
+void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
+{
+	// they both do the same thing but can be called in certain circumstances
+	HandleOnTeamChange(eventArgs);
 }
 
 void Server::LoadPlugins()
@@ -580,7 +649,6 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
-	/// TODO: Handle team/squad changes, disconnects, and round events that may affect players in teams
 	// process each player
 	constexpr size_t offset = 13;
 	constexpr size_t numVar = 10;
@@ -611,7 +679,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		// check if they are in the team and squad list
 		auto teamIt = m_teams.find(pPlayer->teamId);
 		if (teamIt == m_teams.end())
-			teamIt = m_teams.emplace(pPlayer->teamId, std::unordered_map<uint8_t, PlayerMap_t>()).first;
+			teamIt = m_teams.emplace(pPlayer->teamId, SquadMap_t()).first;
 
 		auto squadIt = teamIt->second.find(pPlayer->squadId);
 		if (squadIt == teamIt->second.end())

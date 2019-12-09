@@ -103,8 +103,9 @@ namespace BetteRCon
 		using Packet_t = Internal::Packet;
 		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
 		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
-		using TeamSquadMap_t = std::unordered_map<uint8_t, std::unordered_map<uint8_t, PlayerMap_t>>;
-		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamSquadMap_t& teams)>;
+		using SquadMap_t = std::unordered_map<uint8_t, PlayerMap_t>;
+		using TeamMap_t = std::unordered_map<uint8_t, SquadMap_t>;
+		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
@@ -163,6 +164,8 @@ namespace BetteRCon
 		
 		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
+		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
+		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
@@ -203,7 +206,7 @@ namespace BetteRCon
 		// player info
 		// we store as shared_ptrs with redundancy because we want fast accessing of teams and squads, as well as easy traversal of all players
 		PlayerMap_t m_players;
-		TeamSquadMap_t m_teams;
+		TeamMap_t m_teams;
 		asio::steady_timer m_playerInfoTimer;
 
 		void HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerList);
