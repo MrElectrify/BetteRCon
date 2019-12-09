@@ -29,7 +29,8 @@ Server::Server()
 	: m_connection(m_worker, 
 		std::bind(&Server::HandleEvent, this, 
 			std::placeholders::_1, std::placeholders::_2)),
-	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker)
+	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker), 
+	m_punkbusterPlayerListTimer(m_worker)
 {
 	// initialize all serverInfo stuff to 0
 	m_serverInfo.m_playerCount = 0;
@@ -88,6 +89,9 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 			this, std::placeholders::_1));
 	RegisterCallback("player.onLeave",
 		std::bind(&Server::HandleOnLeave,
+			this, std::placeholders::_1));
+	RegisterCallback("punkBuster.onMessage",
+		std::bind(&Server::HandlePunkbusterMessage,
 			this, std::placeholders::_1));
 }
 
@@ -373,6 +377,11 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			&Server::HandlePlayerListTimerExpire,
 			this, std::placeholders::_1));
 
+		// and the punkbuster playerList loop
+		m_punkbusterPlayerListTimer.async_wait(std::bind(
+			&Server::HandlePunkbusterPlayerListTimerExpire,
+			this, std::placeholders::_1));
+
 		// load the plugins
 		LoadPlugins();
 
@@ -519,6 +528,13 @@ void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
 {
 	// they both do the same thing but can be called in certain circumstances
 	HandleOnTeamChange(eventArgs);
+}
+
+void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
+{
+	const auto& pbMessage = eventArgs.at(1);
+
+
 }
 
 void Server::LoadPlugins()
@@ -751,4 +767,33 @@ void Server::HandlePlayerListTimerExpire(const ErrorCode_t& ec)
 	SendCommand({ "admin.listPlayers", "all" }, std::bind(
 		&Server::HandlePlayerList, this,
 		std::placeholders::_1, std::placeholders::_2));
+}
+
+void Server::HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector<std::string>& response)
+{
+	// parse the result
+	if (response.at(0) != "OK")
+	{
+		// disconnect, the server is not OK
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	// reset the timer and wait again
+	m_punkbusterPlayerListTimer.expires_from_now(std::chrono::seconds(30));
+	m_punkbusterPlayerListTimer.async_wait(std::bind(
+		&Server::HandlePunkbusterPlayerListTimerExpire,
+		this, std::placeholders::_1));
+}
+
+void Server::HandlePunkbusterPlayerListTimerExpire(const ErrorCode_t& ec)
+{
+	// the oepration was likely canceled. stop the loop
+	if (ec)
+		return;
+
+	SendCommand({ "punkBuster.pb_sv_command", "pb_sv_plist" }, 
+		std::bind(&Server::HandlePunkbusterPlayerList, this,
+			std::placeholders::_1, std::placeholders::_2));
 }

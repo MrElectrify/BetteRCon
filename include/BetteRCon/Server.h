@@ -177,6 +177,7 @@ namespace BetteRCon
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
+		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
@@ -219,9 +220,13 @@ namespace BetteRCon
 		PlayerMap_t m_players;
 		TeamMap_t m_teams;
 		asio::steady_timer m_playerInfoTimer;
+		asio::steady_timer m_punkbusterPlayerListTimer;
 
 		void HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerList);
 		void HandlePlayerListTimerExpire(const ErrorCode_t& ec);
+
+		void HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector<std::string>& response);
+		void HandlePunkbusterPlayerListTimerExpire(const ErrorCode_t& ec);
 	};
 }
 
