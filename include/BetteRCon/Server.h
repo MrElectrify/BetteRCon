@@ -135,6 +135,14 @@ namespace BetteRCon
 
 		// Gets server info
 		const ServerInfo& GetServerInfo() const noexcept;
+		// Gets server players
+		const PlayerMap_t& GetPlayers() const noexcept;
+		// Gets team map
+		const TeamMap_t& GetTeams() const noexcept;
+		// Gets team squads
+		const SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept;
+		// Gets squad players
+		const PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept;
 
 		// Gets the last error code, which will tell why the server disconnected if it did
 		ErrorCode_t GetLastErrorCode() const noexcept;

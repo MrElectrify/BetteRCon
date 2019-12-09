@@ -135,6 +135,36 @@ const Server::ServerInfo& Server::GetServerInfo() const noexcept
 	return m_serverInfo;
 }
 
+const Server::PlayerMap_t& Server::GetPlayers() const noexcept
+{
+	return m_players;
+}
+
+const Server::TeamMap_t& Server::GetTeams() const noexcept
+{
+	return m_teams;
+}
+
+const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexcept
+{
+	const auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+		return {};
+
+	return teamIt->second;
+}
+
+const Server::PlayerMap_t& Server::GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept
+{
+	const auto& squadMap = GetSquadMap(teamId);
+
+	const auto squadIt = squadMap.find(squadId);
+	if (squadIt == squadMap.end())
+		return {};
+
+	return squadIt->second;
+}
+
 Server::ErrorCode_t Server::GetLastErrorCode() const noexcept
 {
 	return m_connection.GetLastErrorCode();
