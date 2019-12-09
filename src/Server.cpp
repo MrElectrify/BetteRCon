@@ -532,7 +532,7 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 	static bool s_expectPlayerList = false;
 
 	// see if we should expect a playerList
-	if (pbMessage.find("Player List") != std::string::npos)
+	if (pbMessage.find("Player List:") != std::string::npos)
 	{
 		// reset the timer and wait again
 		ErrorCode_t ec;
