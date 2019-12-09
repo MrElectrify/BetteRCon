@@ -92,6 +92,7 @@ namespace BetteRCon
 			std::string pbGuid;
 			std::string ipAddress;
 			uint16_t port = 0;
+			bool seenThisCheck = false;
 			std::chrono::system_clock::time_point firstSeen;
 		};
 
@@ -179,6 +180,8 @@ namespace BetteRCon
 		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
+
+		
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;

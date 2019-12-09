@@ -470,6 +470,7 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 	const auto newTeamId = static_cast<uint8_t>(std::stoi(eventArgs.at(2)));
 	const auto newSquadId = static_cast<uint8_t>(std::stoi(eventArgs.at(3)));
 
+	// this could be the first time we see them
 	auto playerIt = m_players.find(playerName);
 	if (playerIt == m_players.end())
 	{
@@ -480,6 +481,11 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 	const auto& pPlayer = playerIt->second;
 	const auto teamId = pPlayer->teamId;
 	const auto squadId = pPlayer->squadId;
+
+	// they didn't actually change, or we are handling both messages
+	if (newTeamId == teamId &&
+		newSquadId == squadId)
+		return;
 
 	// find them in the team map, they might not be in here yet so don't worry if they are not
 	auto teamIt = m_teams.find(teamId);
@@ -502,17 +508,27 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 				if (teamIt->second.empty() == true)
 					m_teams.erase(teamIt);
 			}
+			else
+				__debugbreak();
 		}
+		else
+			__debugbreak();
 	}
+	else
+		__debugbreak();
 
 	// add them to the new team and squad
 	teamIt = m_teams.find(newTeamId);
 	if (teamIt == m_teams.end())
-		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
+		teamIt = m_teams.emplace(newTeamId, SquadMap_t()).first;
 
 	auto squadIt = teamIt->second.find(newSquadId);
 	if (squadIt == teamIt->second.end())
-		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
+		squadIt = teamIt->second.emplace(newSquadId, PlayerMap_t()).first;
+
+	// change their squad and teamId
+	pPlayer->teamId = newTeamId;
+	pPlayer->squadId = newSquadId;
 
 	squadIt->second.emplace(playerName, pPlayer);
 }
@@ -791,6 +807,10 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	constexpr size_t numVar = 10;
 	size_t playerCount = std::stoi(playerInfo.at(12));
 
+	// set that none of the players were yet seen this check
+	for (auto& playerPair : m_players)
+		playerPair.second->seenThisCheck = false;
+
 	for (size_t i = 0; i < playerCount; ++i)
 	{
 		std::string playerName = playerInfo.at(offset + numVar * i);
@@ -812,6 +832,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
 		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
 		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+		pPlayer->seenThisCheck = true;
 
 		// check if they are in the team and squad list
 		auto teamIt = m_teams.find(pPlayer->teamId);
@@ -826,9 +847,14 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 			squadIt->second.emplace(std::move(playerName), std::move(pPlayer));
 	}
 
-	/// for debug purposes, check top make sure we have the correct amount of players stored
-	if (playerCount > m_players.size())
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player count mismatch\n";
+	for (auto playerIt = m_players.begin(); playerIt != m_players.end(); ++playerIt)
+	{
+		// if we didn't see them in the list, remove them
+		if (playerIt->second->seenThisCheck == false)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
+		}
+	}
 
 	// call the playerInfo callback
 	m_playerInfoCallback(m_players, m_teams);
