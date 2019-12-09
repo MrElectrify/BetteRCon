@@ -862,7 +862,10 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		if (playerIt->second->seenThisCheck == false)
 		{
 			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
-			__debugbreak();
+
+			// delete the player
+			RemovePlayerFromSquad(playerIt->second, playerIt->second->teamId, playerIt->second->squadId);
+			m_players.erase(playerIt);
 		}
 	}
 
