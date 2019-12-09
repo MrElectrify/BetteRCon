@@ -377,11 +377,6 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			&Server::HandlePlayerListTimerExpire,
 			this, std::placeholders::_1));
 
-		// and the punkbuster playerList loop
-		m_punkbusterPlayerListTimer.async_wait(std::bind(
-			&Server::HandlePunkbusterPlayerListTimerExpire,
-			this, std::placeholders::_1));
-
 		// load the plugins
 		LoadPlugins();
 
@@ -534,7 +529,86 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 {
 	const auto& pbMessage = eventArgs.at(1);
 
+	static bool s_expectPlayerList = false;
 
+	// see if we should expect a playerList
+	if (pbMessage.find("Player List") != std::string::npos)
+	{
+		// reset the timer and wait again
+		ErrorCode_t ec;
+		m_punkbusterPlayerListTimer.cancel_one(ec);
+
+		m_punkbusterPlayerListTimer.expires_from_now(std::chrono::seconds(30));
+		m_punkbusterPlayerListTimer.async_wait(std::bind(
+			&Server::HandlePunkbusterPlayerListTimerExpire,
+			this, std::placeholders::_1));
+
+		s_expectPlayerList = true;
+	}
+	else if (pbMessage.find("End of Player List") != std::string::npos)
+	{
+		s_expectPlayerList = false;
+	}
+	else if (s_expectPlayerList == true)
+	{
+		if (pbMessage.size() < sizeof("PunkBuster Server: ") - 1)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: PB sent an empty message\n";
+			return;
+		}
+
+		// find the player's pbguid and IP
+		std::stringstream ss(pbMessage.substr(sizeof("PunkBuster Server: ") - 1));
+
+		uint16_t slotId;
+		std::string pbGuid;
+		std::string ipPort;
+		std::string status;
+		uint32_t power;
+		float authRate;
+		uint32_t recentSS;
+		std::string OS;
+		std::string name;
+
+		// parse the message
+		if (!(ss >> slotId) ||
+			!(ss >> pbGuid) ||
+			!(ss >> ipPort) ||
+			!(ss >> status) ||
+			!(ss >> power) ||
+			!(ss >> authRate) ||
+			!(ss >> recentSS) ||
+			!(ss >> OS) ||
+			!(ss >> name))
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to parse PB player list message\n";
+			return;
+		}
+
+		// remove the quotes
+		name = name.substr(1, name.size() - 2);
+
+		// find the player
+		auto playerIt = m_players.find(name);
+		if (playerIt == m_players.end())
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Punkbuster sent player info for a player who is not in the internal player map\n";
+			return;
+		}
+
+		const auto ipColon = ipPort.find(':');
+		if (ipColon == std::string::npos)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Punkbuster sent an invalid IP-port\n";
+			return;
+		}
+
+		// save the ip and guid
+		auto& pPlayer = playerIt->second;
+		pPlayer->pbGuid = pbGuid.substr(0, 32);
+		pPlayer->ipAddress = ipPort.substr(0, ipColon);
+		pPlayer->port = static_cast<uint16_t>(std::stoi(ipPort.substr(ipColon + 1)));
+	}
 }
 
 void Server::LoadPlugins()
@@ -694,6 +768,15 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	if (ec)
 		return;
 
+	// see if punkbuster is looking for player info yet
+	if (m_punkbusterPlayerListTimer.expiry() < std::chrono::steady_clock::now())
+	{
+		// start the punkbuster playerList loop
+		m_punkbusterPlayerListTimer.async_wait(std::bind(
+			&Server::HandlePunkbusterPlayerListTimerExpire,
+			this, std::placeholders::_1));
+	}
+
 	/// TODO: Make this whole section work independently of variable count per player
 	if (playerInfo.at(0) != "OK" ||
 		playerInfo.at(1) != "10")
@@ -779,12 +862,6 @@ void Server::HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector
 		Disconnect(ec);
 		return;
 	}
-
-	// reset the timer and wait again
-	m_punkbusterPlayerListTimer.expires_from_now(std::chrono::seconds(30));
-	m_punkbusterPlayerListTimer.async_wait(std::bind(
-		&Server::HandlePunkbusterPlayerListTimerExpire,
-		this, std::placeholders::_1));
 }
 
 void Server::HandlePunkbusterPlayerListTimerExpire(const ErrorCode_t& ec)

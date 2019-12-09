@@ -89,6 +89,7 @@ namespace BetteRCon
 			uint8_t rank;
 			uint16_t ping;
 			uint16_t type;
+			std::string pbGuid;
 			std::string ipAddress;
 			uint16_t port;
 			std::chrono::system_clock::time_point firstSeen;
