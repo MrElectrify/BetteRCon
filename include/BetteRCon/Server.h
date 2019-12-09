@@ -179,6 +179,7 @@ namespace BetteRCon
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
+		void HandleOnKill(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
 
 		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);

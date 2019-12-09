@@ -96,6 +96,9 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	RegisterCallback("player.onSquadChange",
 		std::bind(&Server::HandleOnSquadChange,
 			this, std::placeholders::_1));
+	RegisterCallback("player.onKill",
+		std::bind(&Server::HandleOnKill,
+			this, std::placeholders::_1));
 	RegisterCallback("punkBuster.onMessage",
 		std::bind(&Server::HandlePunkbusterMessage,
 			this, std::placeholders::_1));
@@ -467,6 +470,37 @@ void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
 {
 	// they both do the same thing but can be called in certain circumstances
 	HandleOnTeamChange(eventArgs);
+}
+
+void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
+{
+	// find both the killer and victim
+	const auto& killerName = eventArgs.at(1);
+	const auto& victimName = eventArgs.at(2);
+
+	const auto victimIt = m_players.find(victimName);
+	if (victimIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Victim " << killerName << " not found in player map\n";
+		return;
+	}
+
+	// increment victim's deaths
+	++victimIt->second->deaths;
+
+	// they suicided
+	if (killerName == victimName)
+		return;
+
+	const auto killerIt = m_players.find(killerName);
+	if (killerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Killer " << killerName << " not found in player map\n";
+		return;
+	}
+
+	// increment killer's kills
+	++killerIt->second->kills;
 }
 
 void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
