@@ -561,28 +561,17 @@ void Server::AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const 
 	// add them to the new team and squad
 	auto teamIt = m_teams.find(teamId);
 	if (teamIt == m_teams.end())
-	{
-		/// DEBUG
-		BetteRCon::Internal::g_stdOutLog << "DEBUG: Creating team " << static_cast<uint16_t>(teamId) << '\n';
 		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
-	}
 
 	auto squadIt = teamIt->second.find(squadId);
 	if (squadIt == teamIt->second.end())
-	{
-		/// DEBUG
-		BetteRCon::Internal::g_stdOutLog << "DEBUG: Creating squad " << static_cast<uint16_t>(squadId) << " in team " << static_cast<uint16_t>(teamId) << '\n';
 		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
-	}
 
 	// change their squad and teamId
 	pPlayer->teamId = teamId;
 	pPlayer->squadId = squadId;
 
 	squadIt->second.emplace(pPlayer->name, pPlayer);
-
-	/// DEBUG
-	BetteRCon::Internal::g_stdOutLog << "DEBUG: Added player " << pPlayer->name << " to team " << static_cast<uint16_t>(teamId) << " and squad " << static_cast<uint16_t>(squadId) << '\n';
 }
 
 void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId)
@@ -612,23 +601,13 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 	// remove them from the team map
 	squadIt->second.erase(playerIt);
 
-	/// DEBUG
-	BetteRCon::Internal::g_stdOutLog << "DEBUG: Removed " << pPlayer->name << " from team " << static_cast<uint16_t>(teamId) << " and squad " << static_cast<uint16_t>(squadId) << '\n';
-
 	// erase the squad if they were alone in their squad
 	if (squadIt->second.empty() == true)
-	{
-		/// DEBUG
-		BetteRCon::Internal::g_stdOutLog << "DEBUG: Deleting squad " << static_cast<uint16_t>(squadIt->first) << " from team " << static_cast<uint16_t>(teamIt->first) << '\n';
 		teamIt->second.erase(squadIt);
-	}
 
 	// erase the team if it is empty
 	if (teamIt->second.empty() == true)
-	{
-		BetteRCon::Internal::g_stdOutLog << "DEBUG: Deleting team " << static_cast<uint16_t>(teamIt->first) << '\n';
 		m_teams.erase(teamIt);
-	}
 }
 
 void Server::LoadPlugins()
@@ -857,7 +836,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	m_playerInfoCallback(m_players, m_teams);
 
 	// reset the timer and wait again
-	m_playerInfoTimer.expires_from_now(std::chrono::seconds(15));
+	m_playerInfoTimer.expires_from_now(std::chrono::seconds(30));
 	m_playerInfoTimer.async_wait(std::bind(
 		&Server::HandlePlayerListTimerExpire,
 		this, std::placeholders::_1));
