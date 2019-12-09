@@ -337,6 +337,15 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 	}
 }
 
+void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
+{
+	// onAuthenticated means they successfully completed the client/server handshake, fb::online::OnlineClient::onConnected has been called, and they are connected. create a player for them
+	const auto& playerName = eventArgs.at(0);
+	auto& pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+
+	pPlayer->name = playerName;
+}
+
 void Server::LoadPlugins()
 {
 	// make sure the plugins directory exists

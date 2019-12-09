@@ -162,6 +162,7 @@ namespace BetteRCon
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
 		
 		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
+		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
