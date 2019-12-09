@@ -487,42 +487,44 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 		newSquadId == squadId)
 		return;
 
-	// find them in the team map, they might not be in here yet so don't worry if they are not
+	// find them in the team map
 	auto teamIt = m_teams.find(teamId);
-	if (teamIt != m_teams.end())
+	if (teamIt == m_teams.end())
 	{
-		auto squadIt = teamIt->second.find(squadId);
-		if (squadIt != teamIt->second.end())
-		{
-			playerIt = squadIt->second.find(playerName);
-			if (playerIt != squadIt->second.end())
-			{
-				// remove them from the team map
-				squadIt->second.erase(playerIt);
-
-				// erase the squad if they were alone in their squad
-				if (squadIt->second.empty() == true)
-					teamIt->second.erase(squadIt);
-
-				// erase the team if it is empty
-				if (teamIt->second.empty() == true)
-					m_teams.erase(teamIt);
-			}
-			else
-				__debugbreak();
-		}
-		else
-			__debugbreak();
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed squads/teams but had an invalid team\n";
+		return;
 	}
-	else
-		__debugbreak();
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed squads/teams but had an invalid squad\n";
+		return;
+	}
+
+	playerIt = squadIt->second.find(playerName);
+	if (playerIt == squadIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed squads/teams but was not found in the internal team map\n";
+		return;
+	}
+
+	// remove them from the team map
+	squadIt->second.erase(playerIt);
+
+	// erase the squad if they were alone in their squad
+	if (squadIt->second.empty() == true)
+		teamIt->second.erase(squadIt);
+
+	// erase the team if it is empty
+	if (teamIt->second.empty() == true)
 
 	// add them to the new team and squad
 	teamIt = m_teams.find(newTeamId);
 	if (teamIt == m_teams.end())
 		teamIt = m_teams.emplace(newTeamId, SquadMap_t()).first;
 
-	auto squadIt = teamIt->second.find(newSquadId);
+	squadIt = teamIt->second.find(newSquadId);
 	if (squadIt == teamIt->second.end())
 		squadIt = teamIt->second.emplace(newSquadId, PlayerMap_t()).first;
 
