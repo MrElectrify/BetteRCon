@@ -133,6 +133,9 @@ namespace BetteRCon
 		// Returns whether or not we are connected
 		bool IsConnected() const noexcept;
 
+		// Gets server info
+		const ServerInfo& GetServerInfo() const noexcept;
+
 		// Gets the last error code, which will tell why the server disconnected if it did
 		ErrorCode_t GetLastErrorCode() const noexcept;
 

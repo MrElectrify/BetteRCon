@@ -130,6 +130,11 @@ bool Server::IsConnected() const noexcept
 	return m_connection.IsConnected() == true;
 }
 
+const Server::ServerInfo& Server::GetServerInfo() const noexcept
+{
+	return m_serverInfo;
+}
+
 Server::ErrorCode_t Server::GetLastErrorCode() const noexcept
 {
 	return m_connection.GetLastErrorCode();
