@@ -147,20 +147,24 @@ const Server::TeamMap_t& Server::GetTeams() const noexcept
 
 const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexcept
 {
+	static const SquadMap_t emptyTeam;
+
 	const auto teamIt = m_teams.find(teamId);
 	if (teamIt == m_teams.end())
-		return {};
+		return emptyTeam;
 
 	return teamIt->second;
 }
 
 const Server::PlayerMap_t& Server::GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept
 {
+	static const PlayerMap_t emptySquad;
+
 	const auto& squadMap = GetSquadMap(teamId);
 
 	const auto squadIt = squadMap.find(squadId);
 	if (squadIt == squadMap.end())
-		return {};
+		return emptySquad;
 
 	return squadIt->second;
 }
