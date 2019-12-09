@@ -746,7 +746,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	m_serverInfoCallback(m_serverInfo);
 
 	// reset the timer and wait again
-	m_serverInfoTimer.expires_from_now(std::chrono::seconds(15));
+	m_serverInfoTimer.expires_from_now(std::chrono::seconds(30));
 	m_serverInfoTimer.async_wait(std::bind(
 		&Server::HandleServerInfoTimerExpire,
 		this, std::placeholders::_1));
