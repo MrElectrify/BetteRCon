@@ -90,6 +90,12 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	RegisterCallback("player.onLeave",
 		std::bind(&Server::HandleOnLeave,
 			this, std::placeholders::_1));
+	RegisterCallback("player.onTeamChange",
+		std::bind(&Server::HandleOnTeamChange,
+			this, std::placeholders::_1));
+	RegisterCallback("player.onSquadChange",
+		std::bind(&Server::HandleOnSquadChange,
+			this, std::placeholders::_1));
 	RegisterCallback("punkBuster.onMessage",
 		std::bind(&Server::HandlePunkbusterMessage,
 			this, std::placeholders::_1));
@@ -402,6 +408,7 @@ void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 	auto& pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
 
 	pPlayer->name = playerName;
+	pPlayer->firstSeen = std::chrono::system_clock::now();
 }
 
 void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
@@ -474,45 +481,36 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 	const auto teamId = pPlayer->teamId;
 	const auto squadId = pPlayer->squadId;
 
-	// find them in the team map
+	// find them in the team map, they might not be in here yet so don't worry if they are not
 	auto teamIt = m_teams.find(teamId);
-	if (teamIt == m_teams.end())
+	if (teamIt != m_teams.end())
 	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid team\n";
-		return;
+		auto squadIt = teamIt->second.find(squadId);
+		if (squadIt != teamIt->second.end())
+		{
+			playerIt = squadIt->second.find(playerName);
+			if (playerIt != squadIt->second.end())
+			{
+				// remove them from the team map
+				squadIt->second.erase(playerIt);
+
+				// erase the squad if they were alone in their squad
+				if (squadIt->second.empty() == true)
+					teamIt->second.erase(squadIt);
+
+				// erase the team if it is empty
+				if (teamIt->second.empty() == true)
+					m_teams.erase(teamIt);
+			}
+		}
 	}
-
-	auto squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid squad\n";
-		return;
-	}
-
-	playerIt = squadIt->second.find(playerName);
-	if (playerIt == squadIt->second.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal team map\n";
-		return;
-	}
-
-	// remove them from the team map
-	squadIt->second.erase(playerIt);
-
-	// erase the squad if they were alone in their squad
-	if (squadIt->second.empty() == true)
-		teamIt->second.erase(squadIt);
-
-	// erase the team if it is empty
-	if (teamIt->second.empty() == true)
-		m_teams.erase(teamIt);
 
 	// add them to the new team and squad
 	teamIt = m_teams.find(newTeamId);
 	if (teamIt == m_teams.end())
 		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
 
-	squadIt = teamIt->second.find(newSquadId);
+	auto squadIt = teamIt->second.find(newSquadId);
 	if (squadIt == teamIt->second.end())
 		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
 

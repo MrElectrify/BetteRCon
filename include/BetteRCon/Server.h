@@ -81,17 +81,17 @@ namespace BetteRCon
 		{
 			std::string name;
 			std::string GUID;
-			uint8_t teamId;
-			uint8_t squadId;
-			uint32_t kills;
-			uint32_t deaths;
-			uint32_t score;
-			uint8_t rank;
-			uint16_t ping;
-			uint16_t type;
+			uint8_t teamId = 0;
+			uint8_t squadId = 0;
+			uint32_t kills = 0;
+			uint32_t deaths = 0;
+			uint32_t score = 0;
+			uint8_t rank = 0;
+			uint16_t ping = 0;
+			uint16_t type = 0;
 			std::string pbGuid;
 			std::string ipAddress;
-			uint16_t port;
+			uint16_t port = 0;
 			std::chrono::system_clock::time_point firstSeen;
 		};
 
