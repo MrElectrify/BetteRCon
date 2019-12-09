@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 	},
 		[](const Server::PlayerMap_t& players, const Server::TeamSquadMap_t& teams)
 	{
-		std::cout << "PlayerInfo updated with " << players.size() << " players and " << teams.size() << " teams\n";
+		BetteRCon::Internal::g_stdOutLog << "PlayerInfo updated with " << players.size() << " players and " << teams.size() << " teams\n";
 	});
 
 	{

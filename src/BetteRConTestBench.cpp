@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
 
 			if (loginRes != Server::LoginResult_OK)
 			{
-				std::cout << "Failed to login to server: " << loginRes << '\n';
+				BetteRCon::Internal::g_stdOutLog << "Failed to login to server: " << loginRes << '\n';
 
 				// we don't care about the result, just disconnect
 				Server::ErrorCode_t ec;
@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
 		}, 
 			[] (const Server::PlayerMap_t& players, const Server::TeamSquadMap_t& teams) 
 		{
-			std::cout << "PlayerInfo updated with " << players.size() << " players and " << teams.size() << " teams\n";
+			BetteRCon::Internal::g_stdOutLog << "PlayerInfo updated with " << players.size() << " players and " << teams.size() << " teams\n";
 		});
 
 		{
