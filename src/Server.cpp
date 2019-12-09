@@ -86,6 +86,9 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	RegisterCallback("player.onAuthenticated",
 		std::bind(&Server::HandleOnAuthenticated,
 			this, std::placeholders::_1));
+	RegisterCallback("player.onLeave",
+		std::bind(&Server::HandleOnLeave,
+			this, std::placeholders::_1));
 }
 
 void Server::Disconnect()
@@ -223,10 +226,22 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecon
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
+	{
+		// clear the players and handlers
+		m_eventCallbacks.clear();
+		m_players.clear();
+		m_teams.clear();
 		return m_disconnectCallback(ec);
+	}
 
 	if (event == nullptr)
+	{
+		// clear the players and handlers
+		m_eventCallbacks.clear();
+		m_players.clear();
+		m_teams.clear();
 		return m_disconnectCallback(ec);
+	}
 
 	// call each event handler
 	auto eventRange = m_eventCallbacks.equal_range(event->GetWords().front());
@@ -340,10 +355,62 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 {
 	// onAuthenticated means they successfully completed the client/server handshake, fb::online::OnlineClient::onConnected has been called, and they are connected. create a player for them
-	const auto& playerName = eventArgs.at(0);
+	const auto& playerName = eventArgs.at(1);
 	auto& pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
 
 	pPlayer->name = playerName;
+}
+
+void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
+{
+	// onLeave means they left the game. Remove them from the list of players
+	const auto& playerName = eventArgs.at(1);
+
+	auto playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal player map\n";
+		return;
+	}
+
+	auto teamId = playerIt->second->teamId;
+	auto squadId = playerIt->second->squadId;
+
+	// remove them from the player map
+	m_players.erase(playerIt);
+
+	// find them in the team map
+	auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid team\n";
+		return;
+	}
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid squad\n";
+		return;
+	}
+
+	playerIt = squadIt->second.find(playerName);
+	if (playerIt == squadIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal team map\n";
+		return;
+	}
+
+	// remove them from the team map
+	squadIt->second.erase(playerIt);
+
+	// erase the squad if they were alone in their squad
+	if (squadIt->second.empty() == true)
+		teamIt->second.erase(squadIt);
+
+	// erase the team if it is empty
+	if (teamIt->second.empty() == true)
+		m_teams.erase(teamIt);
 }
 
 void Server::LoadPlugins()
