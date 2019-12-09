@@ -88,6 +88,10 @@ namespace BetteRCon
 			uint32_t score;
 			uint8_t rank;
 			uint16_t ping;
+			uint16_t type;
+			std::string pbGuid;
+			std::string ipAddress;
+			uint16_t port;
 			std::chrono::system_clock::time_point firstSeen;
 		};
 
@@ -95,13 +99,14 @@ namespace BetteRCon
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
 		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
-		using EventCallback_t = std::function<void(const std::vector<std::string>& response)>;
+		using EventCallback_t = std::function<void(const std::vector<std::string>& eventArgs)>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
-		using PlayerMap_t = std::unordered_map<std::string, PlayerInfo>;
+		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
 		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
-		using TeamSquadMap_t = std::unordered_map<uint8_t, std::unordered_map<uint8_t, std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>>>;
-		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamSquadMap_t& teams)>;
+		using SquadMap_t = std::unordered_map<uint8_t, PlayerMap_t>;
+		using TeamMap_t = std::unordered_map<uint8_t, SquadMap_t>;
+		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
@@ -128,6 +133,17 @@ namespace BetteRCon
 
 		// Returns whether or not we are connected
 		bool IsConnected() const noexcept;
+
+		// Gets server info
+		const ServerInfo& GetServerInfo() const noexcept;
+		// Gets server players
+		const PlayerMap_t& GetPlayers() const noexcept;
+		// Gets team map
+		const TeamMap_t& GetTeams() const noexcept;
+		// Gets team squads
+		const SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept;
+		// Gets squad players
+		const PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept;
 
 		// Gets the last error code, which will tell why the server disconnected if it did
 		ErrorCode_t GetLastErrorCode() const noexcept;
@@ -157,6 +173,12 @@ namespace BetteRCon
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
+		
+		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
+		void HandleOnLeave(const std::vector<std::string>& eventArgs);
+		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
+		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
+		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
@@ -197,11 +219,15 @@ namespace BetteRCon
 		// player info
 		// we store as shared_ptrs with redundancy because we want fast accessing of teams and squads, as well as easy traversal of all players
 		PlayerMap_t m_players;
-		TeamSquadMap_t m_teams;
+		TeamMap_t m_teams;
 		asio::steady_timer m_playerInfoTimer;
+		asio::steady_timer m_punkbusterPlayerListTimer;
 
 		void HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerList);
 		void HandlePlayerListTimerExpire(const ErrorCode_t& ec);
+
+		void HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector<std::string>& response);
+		void HandlePunkbusterPlayerListTimerExpire(const ErrorCode_t& ec);
 	};
 }
 

@@ -29,7 +29,8 @@ Server::Server()
 	: m_connection(m_worker, 
 		std::bind(&Server::HandleEvent, this, 
 			std::placeholders::_1, std::placeholders::_2)),
-	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker)
+	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker), 
+	m_punkbusterPlayerListTimer(m_worker)
 {
 	// initialize all serverInfo stuff to 0
 	m_serverInfo.m_playerCount = 0;
@@ -49,14 +50,6 @@ Server::Server()
 
 void Server::Connect(const Endpoint_t& endpoint)
 {
-	// make sure we are not already connected
-	if (m_connection.IsConnected() == true)
-		m_connection.Disconnect();
-
-	// make sure our thread is not already running a server
-	if (m_thread.joinable() == true)
-		m_thread.join();
-
 	// try to connect to the server
 	m_connection.Connect(endpoint);
 
@@ -89,6 +82,17 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	m_pluginCallback = std::move(pluginCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	m_playerInfoCallback = std::move(playerInfoCallback);
+
+	// register the event callbacks
+	RegisterCallback("player.onAuthenticated",
+		std::bind(&Server::HandleOnAuthenticated,
+			this, std::placeholders::_1));
+	RegisterCallback("player.onLeave",
+		std::bind(&Server::HandleOnLeave,
+			this, std::placeholders::_1));
+	RegisterCallback("punkBuster.onMessage",
+		std::bind(&Server::HandlePunkbusterMessage,
+			this, std::placeholders::_1));
 }
 
 void Server::Disconnect()
@@ -128,6 +132,45 @@ void Server::Disconnect(ErrorCode_t& ec) noexcept
 bool Server::IsConnected() const noexcept
 {
 	return m_connection.IsConnected() == true;
+}
+
+const Server::ServerInfo& Server::GetServerInfo() const noexcept
+{
+	return m_serverInfo;
+}
+
+const Server::PlayerMap_t& Server::GetPlayers() const noexcept
+{
+	return m_players;
+}
+
+const Server::TeamMap_t& Server::GetTeams() const noexcept
+{
+	return m_teams;
+}
+
+const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexcept
+{
+	static const SquadMap_t emptyTeam;
+
+	const auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+		return emptyTeam;
+
+	return teamIt->second;
+}
+
+const Server::PlayerMap_t& Server::GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept
+{
+	static const PlayerMap_t emptySquad;
+
+	const auto& squadMap = GetSquadMap(teamId);
+
+	const auto squadIt = squadMap.find(squadId);
+	if (squadIt == squadMap.end())
+		return emptySquad;
+
+	return squadIt->second;
 }
 
 Server::ErrorCode_t Server::GetLastErrorCode() const noexcept
@@ -226,10 +269,22 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecon
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
+	{
+		// clear the players and handlers
+		m_eventCallbacks.clear();
+		m_players.clear();
+		m_teams.clear();
 		return m_disconnectCallback(ec);
+	}
 
 	if (event == nullptr)
+	{
+		// clear the players and handlers
+		m_eventCallbacks.clear();
+		m_players.clear();
+		m_teams.clear();
 		return m_disconnectCallback(ec);
+	}
 
 	// call each event handler
 	auto eventRange = m_eventCallbacks.equal_range(event->GetWords().front());
@@ -337,6 +392,223 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 	{
 		// something strange happened
 		return loginCallback(LoginResult_Unknown);
+	}
+}
+
+void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
+{
+	// onAuthenticated means they successfully completed the client/server handshake, fb::online::OnlineClient::onConnected has been called, and they are connected. create a player for them
+	const auto& playerName = eventArgs.at(1);
+	auto& pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+
+	pPlayer->name = playerName;
+}
+
+void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
+{
+	// onLeave means they left the game. Remove them from the list of players
+	const auto& playerName = eventArgs.at(1);
+
+	auto playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal player map\n";
+		return;
+	}
+
+	const auto teamId = playerIt->second->teamId;
+	const auto squadId = playerIt->second->squadId;
+
+	// remove them from the player map
+	m_players.erase(playerIt);
+
+	// find them in the team map
+	auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid team\n";
+		return;
+	}
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid squad\n";
+		return;
+	}
+
+	playerIt = squadIt->second.find(playerName);
+	if (playerIt == squadIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal team map\n";
+		return;
+	}
+
+	// remove them from the team map
+	squadIt->second.erase(playerIt);
+
+	// erase the squad if they were alone in their squad
+	if (squadIt->second.empty() == true)
+		teamIt->second.erase(squadIt);
+
+	// erase the team if it is empty
+	if (teamIt->second.empty() == true)
+		m_teams.erase(teamIt);
+}
+
+void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
+{
+	// onLeave means they left the game. Remove them from the list of players
+	const auto& playerName = eventArgs.at(1);
+	const auto newTeamId = static_cast<uint8_t>(std::stoi(eventArgs.at(2)));
+	const auto newSquadId = static_cast<uint8_t>(std::stoi(eventArgs.at(3)));
+
+	auto playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " changed teams but was not found in the internal player map\n";
+		return;
+	}
+
+	const auto& pPlayer = playerIt->second;
+	const auto teamId = pPlayer->teamId;
+	const auto squadId = pPlayer->squadId;
+
+	// find them in the team map
+	auto teamIt = m_teams.find(teamId);
+	if (teamIt == m_teams.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid team\n";
+		return;
+	}
+
+	auto squadIt = teamIt->second.find(squadId);
+	if (squadIt == teamIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but had an invalid squad\n";
+		return;
+	}
+
+	playerIt = squadIt->second.find(playerName);
+	if (playerIt == squadIt->second.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal team map\n";
+		return;
+	}
+
+	// remove them from the team map
+	squadIt->second.erase(playerIt);
+
+	// erase the squad if they were alone in their squad
+	if (squadIt->second.empty() == true)
+		teamIt->second.erase(squadIt);
+
+	// erase the team if it is empty
+	if (teamIt->second.empty() == true)
+		m_teams.erase(teamIt);
+
+	// add them to the new team and squad
+	teamIt = m_teams.find(newTeamId);
+	if (teamIt == m_teams.end())
+		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
+
+	squadIt = teamIt->second.find(newSquadId);
+	if (squadIt == teamIt->second.end())
+		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
+
+	squadIt->second.emplace(playerName, pPlayer);
+}
+
+void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
+{
+	// they both do the same thing but can be called in certain circumstances
+	HandleOnTeamChange(eventArgs);
+}
+
+void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
+{
+	const auto& pbMessage = eventArgs.at(1);
+
+	static bool s_expectPlayerList = false;
+
+	// see if we should expect a playerList
+	if (pbMessage.find("Player List:") != std::string::npos)
+	{
+		// reset the timer and wait again
+		ErrorCode_t ec;
+		m_punkbusterPlayerListTimer.cancel_one(ec);
+
+		m_punkbusterPlayerListTimer.expires_from_now(std::chrono::seconds(30));
+		m_punkbusterPlayerListTimer.async_wait(std::bind(
+			&Server::HandlePunkbusterPlayerListTimerExpire,
+			this, std::placeholders::_1));
+
+		s_expectPlayerList = true;
+	}
+	else if (pbMessage.find("End of Player List") != std::string::npos)
+	{
+		s_expectPlayerList = false;
+	}
+	else if (s_expectPlayerList == true)
+	{
+		if (pbMessage.size() < sizeof("PunkBuster Server: ") - 1)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: PB sent an empty message\n";
+			return;
+		}
+
+		// find the player's pbguid and IP
+		std::stringstream ss(pbMessage.substr(sizeof("PunkBuster Server: ") - 1));
+
+		uint16_t slotId;
+		std::string pbGuid;
+		std::string ipPort;
+		std::string status;
+		uint32_t power;
+		float authRate;
+		uint32_t recentSS;
+		std::string OS;
+		std::string name;
+
+		// parse the message
+		if (!(ss >> slotId) ||
+			!(ss >> pbGuid) ||
+			!(ss >> ipPort) ||
+			!(ss >> status) ||
+			!(ss >> power) ||
+			!(ss >> authRate) ||
+			!(ss >> recentSS) ||
+			!(ss >> OS) ||
+			(OS == "(" && !(ss >> OS)) || // stupid case where OS is not (V) and is instead ( )
+			!(ss >> name))
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to parse PB player list message\n";
+			return;
+		}
+
+		// remove the quotes
+		name = name.substr(1, name.size() - 2);
+
+		// find the player
+		auto playerIt = m_players.find(name);
+		if (playerIt == m_players.end())
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Punkbuster sent player info for a player who is not in the internal player map\n";
+			return;
+		}
+
+		const auto ipColon = ipPort.find(':');
+		if (ipColon == std::string::npos)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Punkbuster sent an invalid IP-port\n";
+			return;
+		}
+
+		// save the ip and guid
+		auto& pPlayer = playerIt->second;
+		pPlayer->pbGuid = pbGuid.substr(0, 32);
+		pPlayer->ipAddress = ipPort.substr(0, ipColon);
+		pPlayer->port = static_cast<uint16_t>(std::stoi(ipPort.substr(ipColon + 1)));
 	}
 }
 
@@ -497,7 +769,18 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	if (ec)
 		return;
 
-	if (playerInfo.at(0) != "OK")
+	// see if punkbuster is looking for player info yet
+	if (m_punkbusterPlayerListTimer.expiry() < std::chrono::steady_clock::now())
+	{
+		// start the punkbuster playerList loop
+		m_punkbusterPlayerListTimer.async_wait(std::bind(
+			&Server::HandlePunkbusterPlayerListTimerExpire,
+			this, std::placeholders::_1));
+	}
+
+	/// TODO: Make this whole section work independently of variable count per player
+	if (playerInfo.at(0) != "OK" ||
+		playerInfo.at(1) != "10")
 	{
 		// the server is not ok, disconnect
 		ErrorCode_t ec;
@@ -506,6 +789,48 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	}
 
 	// process each player
+	constexpr size_t offset = 13;
+	constexpr size_t numVar = 10;
+	size_t playerCount = std::stoi(playerInfo.at(12));
+
+	for (size_t i = 0; i < playerCount; ++i)
+	{
+		std::string playerName = playerInfo.at(offset + numVar * i);
+		std::shared_ptr<PlayerInfo> pPlayer;
+
+		auto playerIt = m_players.find(playerName);
+		if (playerIt == m_players.end())
+			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+		else
+			pPlayer = playerIt->second;
+
+		pPlayer->name = playerName;
+		pPlayer->GUID = playerInfo.at(offset + numVar * i + 1);
+		pPlayer->teamId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 2)));
+		pPlayer->squadId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 3)));
+		pPlayer->kills = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 4)));
+		pPlayer->deaths = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 5)));
+		pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
+		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
+		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
+		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+
+		// check if they are in the team and squad list
+		auto teamIt = m_teams.find(pPlayer->teamId);
+		if (teamIt == m_teams.end())
+			teamIt = m_teams.emplace(pPlayer->teamId, SquadMap_t()).first;
+
+		auto squadIt = teamIt->second.find(pPlayer->squadId);
+		if (squadIt == teamIt->second.end())
+			squadIt = teamIt->second.emplace(pPlayer->squadId, PlayerMap_t()).first;
+
+		if (squadIt->second.find(playerName) == squadIt->second.end())
+			squadIt->second.emplace(std::move(playerName), std::move(pPlayer));
+	}
+
+	/// for debug purposes, check top make sure we have the correct amount of players stored
+	if (playerCount > m_players.size())
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player count mismatch\n";
 
 	// call the playerInfo callback
 	m_playerInfoCallback(m_players, m_teams);
@@ -526,4 +851,30 @@ void Server::HandlePlayerListTimerExpire(const ErrorCode_t& ec)
 	SendCommand({ "admin.listPlayers", "all" }, std::bind(
 		&Server::HandlePlayerList, this,
 		std::placeholders::_1, std::placeholders::_2));
+}
+
+void Server::HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector<std::string>& response)
+{
+	if (ec)
+		return;
+
+	// parse the result
+	if (response.at(0) != "OK")
+	{
+		// disconnect, the server is not OK
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+}
+
+void Server::HandlePunkbusterPlayerListTimerExpire(const ErrorCode_t& ec)
+{
+	// the oepration was likely canceled. stop the loop
+	if (ec)
+		return;
+
+	SendCommand({ "punkBuster.pb_sv_command", "pb_sv_plist" }, 
+		std::bind(&Server::HandlePunkbusterPlayerList, this,
+			std::placeholders::_1, std::placeholders::_2));
 }
