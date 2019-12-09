@@ -10,7 +10,7 @@ BEGINPLUGIN(SamplePlugin)
 		RegisterHandler("player.onJoin", std::bind(&SamplePlugin::HandleJoin, this, std::placeholders::_1));
 
 		// schedule an action for 1000 ms in the future, that will print that 1000 milliseconds have passed
-		ScheduleAction([] { std::cout << "[Sample Plugin]: It has been 1000 milliseconds\n"; }, 1000);
+		ScheduleAction([] { std::cout << "[Sample Plugin]: It has been 1000 milliseconds since creation\n"; }, 1000);
 
 		// retrieve the server's name
 		SendCommand({ "vars.serverName" }, 
