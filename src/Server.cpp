@@ -579,6 +579,7 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 			!(ss >> authRate) ||
 			!(ss >> recentSS) ||
 			!(ss >> OS) ||
+			(OS == "(" && !(ss >> OS)) || // stupid case where OS is not (V) and is instead ( )
 			!(ss >> name))
 		{
 			BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to parse PB player list message\n";
@@ -854,6 +855,9 @@ void Server::HandlePlayerListTimerExpire(const ErrorCode_t& ec)
 
 void Server::HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector<std::string>& response)
 {
+	if (ec)
+		return;
+
 	// parse the result
 	if (response.at(0) != "OK")
 	{

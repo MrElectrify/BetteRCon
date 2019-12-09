@@ -125,7 +125,10 @@ int main(int argc, char* argv[])
 					for (const auto& player : squad.second)
 					{
 						const auto& pPlayer = player.second;
-						std::cout << "\t\t" << pPlayer->name << " (rank " << static_cast<uint32_t>(pPlayer->rank) << "): " << pPlayer->score << " score, " << pPlayer->kills << " kills, " << pPlayer->deaths << " deaths, " << static_cast<float>(pPlayer->kills) / pPlayer->deaths << " K/D\n";
+						std::cout << "\t\t" << pPlayer->name << " (rank " << static_cast<uint32_t>(pPlayer->rank) << "): " << pPlayer->score << " score, " << pPlayer->kills << " kills, " << pPlayer->deaths << " deaths, " << static_cast<float>(pPlayer->kills) / pPlayer->deaths << " K/D";
+						if (pPlayer->ipAddress.size() > 0)
+							std::cout << ", IP / port: " << pPlayer->ipAddress << ':' << pPlayer->port;
+						std::cout << '\n';
 					}
 				}
 			}
