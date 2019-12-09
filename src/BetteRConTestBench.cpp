@@ -153,8 +153,8 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
-		// wait for 30 seconds to capture any events
-		std::this_thread::sleep_for(std::chrono::seconds(30));
+		// wait for 60 seconds to capture any events
+		std::this_thread::sleep_for(std::chrono::seconds(60));
 
 		// close the connection
 		server.Disconnect();
