@@ -81,17 +81,18 @@ namespace BetteRCon
 		{
 			std::string name;
 			std::string GUID;
-			uint8_t teamId;
-			uint8_t squadId;
-			uint32_t kills;
-			uint32_t deaths;
-			uint32_t score;
-			uint8_t rank;
-			uint16_t ping;
-			uint16_t type;
+			uint8_t teamId = 0;
+			uint8_t squadId = 0;
+			uint32_t kills = 0;
+			uint32_t deaths = 0;
+			uint32_t score = 0;
+			uint8_t rank = 0;
+			uint16_t ping = 0;
+			uint16_t type = 0;
 			std::string pbGuid;
 			std::string ipAddress;
-			uint16_t port;
+			uint16_t port = 0;
+			bool seenThisCheck = false;
 			std::chrono::system_clock::time_point firstSeen;
 		};
 
@@ -178,7 +179,11 @@ namespace BetteRCon
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
+		void HandleOnKill(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
+
+		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
+		void RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;

@@ -90,25 +90,7 @@ int main(int argc, char* argv[])
 		else
 			BetteRCon::Internal::g_stdOutLog << "Unloaded plugin " << pluginName << '\n';
 	},
-		[](const std::vector<std::string>& eventWords)
-	{
-		BetteRCon::Internal::g_stdOutLog << "Event " << eventWords.front() << ": ";
-
-		// special case for punkBuster.onMessage
-		if (eventWords.front() == "punkBuster.onMessage")
-		{
-			auto& message = eventWords.at(1);
-			std::cout << message.substr(0, message.size() - 1) << '\n';
-			return;
-		}
-
-		// print out the event for debugging
-		for (size_t i = 1; i < eventWords.size(); ++i)
-		{
-			std::cout << eventWords.at(i) << ' ';
-		}
-		std::cout << '\n';
-	},
+		[](const std::vector<std::string>&) {},
 		[](const Server::ServerInfo& serverInfo)
 	{
 		BetteRCon::Internal::g_stdOutLog << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
