@@ -98,7 +98,7 @@ namespace BetteRCon
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
 		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
-		using EventCallback_t = std::function<void(const std::vector<std::string>& response)>;
+		using EventCallback_t = std::function<void(const std::vector<std::string>& eventArgs)>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
 		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
@@ -160,6 +160,8 @@ namespace BetteRCon
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
+		
+		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
 
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;

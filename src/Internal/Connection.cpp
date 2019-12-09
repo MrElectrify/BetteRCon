@@ -7,6 +7,10 @@ Connection::Connection(Worker_t& worker, RecvCallback_t&& eventCallback) : m_con
 
 void Connection::Connect(const Endpoint_t& endpoint)
 {
+	// make sure we are not already connected
+	if (m_connected == true)
+		throw asio::error::make_error_code(asio::error::already_connected);
+
 	ErrorCode_t ec;
 
 	m_socket.connect(endpoint, ec);

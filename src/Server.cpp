@@ -49,14 +49,6 @@ Server::Server()
 
 void Server::Connect(const Endpoint_t& endpoint)
 {
-	// make sure we are not already connected
-	if (m_connection.IsConnected() == true)
-		m_connection.Disconnect();
-
-	// make sure our thread is not already running a server
-	if (m_thread.joinable() == true)
-		m_thread.join();
-
 	// try to connect to the server
 	m_connection.Connect(endpoint);
 
@@ -89,6 +81,11 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	m_pluginCallback = std::move(pluginCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	m_playerInfoCallback = std::move(playerInfoCallback);
+
+	// register the event callbacks
+	RegisterCallback("player.onAuthenticated",
+		std::bind(&Server::HandleOnAuthenticated,
+			this, std::placeholders::_1));
 }
 
 void Server::Disconnect()
