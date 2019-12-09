@@ -689,6 +689,10 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 			squadIt->second.emplace(std::move(playerName), std::move(pPlayer));
 	}
 
+	/// for debug purposes, check top make sure we have the correct amount of players stored
+	if (playerCount > m_players.size())
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player count mismatch\n";
+
 	// call the playerInfo callback
 	m_playerInfoCallback(m_players, m_teams);
 
