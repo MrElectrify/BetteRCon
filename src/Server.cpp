@@ -489,7 +489,8 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 	++victimIt->second->deaths;
 
 	// they suicided
-	if (killerName == victimName)
+	if (killerName.size() == 0 ||
+		killerName == victimName)
 		return;
 
 	const auto killerIt = m_players.find(killerName);
