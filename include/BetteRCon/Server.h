@@ -169,6 +169,8 @@ namespace BetteRCon
 
 		~Server();
 	private:
+		void ClearContainers();
+
 		void SendResponse(const std::vector<std::string>& response, const int32_t sequence);
 
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);

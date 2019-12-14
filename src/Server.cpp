@@ -207,28 +207,6 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 	});
 }
 
-Server::~Server()
-{
-	ErrorCode_t ec;
-
-	// disconnect
-	if (IsConnected() == true)
-		Disconnect(ec);
-
-	// wait for the thread
-	if (m_thread.joinable() == true)
-		m_thread.join();
-}
-
-void Server::SendResponse(const std::vector<std::string>& response, const int32_t sequence)
-{
-	// create our packet
-	Packet_t packet(response, sequence, true);
-
-	// send the packet
-	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
-}
-
 void Server::RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback)
 {
 	// add the event callback to the list of callbacks for the event name
@@ -243,7 +221,7 @@ bool Server::EnablePlugin(const std::string& pluginName)
 		return false;
 
 	pluginIt->second.pPlugin->Enable();
-	
+
 	return true;
 }
 
@@ -266,7 +244,7 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const std::chrono::syst
 	pTimer->expires_from_now(timeFromNow);
 
 	pTimer->async_wait(
-		[timedAction = std::move(timedAction), pTimer] (const ErrorCode_t& ec)
+		[timedAction = std::move(timedAction), pTimer](const ErrorCode_t& ec)
 	{
 		if (!ec)
 			timedAction();
@@ -278,23 +256,48 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecon
 	ScheduleAction(std::move(timedAction), std::chrono::milliseconds(millisecondsFromNow));
 }
 
+Server::~Server()
+{
+	ErrorCode_t ec;
+
+	// disconnect
+	if (IsConnected() == true)
+		Disconnect(ec);
+
+	// wait for the thread
+	if (m_thread.joinable() == true)
+		m_thread.join();
+}
+
+void Server::ClearContainers()
+{
+	// clear the players and handlers
+	m_eventCallbacks.clear();
+	m_pluginEventCallbacks.clear();
+	m_players.clear();
+	m_teams.clear();
+}
+
+void Server::SendResponse(const std::vector<std::string>& response, const int32_t sequence)
+{
+	// create our packet
+	Packet_t packet(response, sequence, true);
+
+	// send the packet
+	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
+}
+
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
 	{
-		// clear the players and handlers
-		m_eventCallbacks.clear();
-		m_players.clear();
-		m_teams.clear();
+		ClearContainers();
 		return m_disconnectCallback(ec);
 	}
 
 	if (event == nullptr)
 	{
-		// clear the players and handlers
-		m_eventCallbacks.clear();
-		m_players.clear();
-		m_teams.clear();
+		ClearContainers();
 		return m_disconnectCallback(ec);
 	}
 
