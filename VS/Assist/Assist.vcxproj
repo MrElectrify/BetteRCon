@@ -18,6 +18,9 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\Assist.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{80ECA8BA-D9B0-458A-870B-329828438D2E}</ProjectGuid>
@@ -183,9 +186,6 @@ mkdir $(SolutionDir)BetteRConConsole\plugins
 copy /y $(SolutionDir)plugins\Assist.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="Assist.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
