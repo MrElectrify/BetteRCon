@@ -117,7 +117,7 @@ namespace BetteRCon
 		// Sends a chat message to a team, of max 128 characters
 		void SendChatMessage(const std::string& message, const uint8_t teamId) { SendCommand({ "admin.say", message, "team", std::to_string(teamId) }, {}); }
 		// Sends a chat message to a set of players, of max 128 characters
-		void SendChatMessage(const std::string& message, const std::vector<const std::shared_ptr<Server::PlayerInfo>>& players) { for (const auto& pPlayer : players) SendChatMessage(message, pPlayer); }
+		void SendChatMessage(const std::string& message, const std::vector<std::shared_ptr<Server::PlayerInfo>>& players) { for (const auto& pPlayer : players) { SendChatMessage(message, pPlayer); } }
 	private:
 		bool m_enabled = false;
 
