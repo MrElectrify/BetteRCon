@@ -557,7 +557,7 @@ BEGINPLUGIN(Assist)
 			m_lastScores.resize(scores.size());
 
 		for (size_t i = 0; i < scores.size(); ++i)
-			m_lastScoreDiffs[i] = std::fabs(scores[i] - m_lastScores[i]);
+			m_lastScoreDiffs[i] = std::abs(scores[i] - m_lastScores[i]);
 
 		// save the current scores as the last scores
 		m_lastScores = scores;
