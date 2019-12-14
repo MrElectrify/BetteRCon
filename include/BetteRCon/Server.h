@@ -153,8 +153,12 @@ namespace BetteRCon
 		// RecvCallback_t must not block, as it is called from the worker thread
 		void SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback);
 
-		// Registers a callback that will be called any time an event is received
+		// Registers a callback that will be called any time an event is received, before any plugin event callbacks are called. Alias to RegisterPrePluginCallback
 		void RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback);
+		// Registers a callback that will be called any time an event is received, before any plugin event callbacks are called
+		void RegisterPrePluginCallback(const std::string& eventName, EventCallback_t&& eventCallback);
+		// Registers a callback that will be called any time an event is received, after any plugin event callbacks are called
+		void RegisterPostPluginCallback(const std::string& eventName, EventCallback_t&& eventCallback);
 
 		// Enables a plugin by name. Returns true on success
 		bool EnablePlugin(const std::string& pluginName);
@@ -201,7 +205,8 @@ namespace BetteRCon
 		Connection_t m_connection;
 		std::thread m_thread;
 
-		std::unordered_multimap<std::string, EventCallback_t> m_eventCallbacks;
+		std::unordered_multimap<std::string, EventCallback_t> m_prePluginEventCallbacks;
+		std::unordered_multimap<std::string, EventCallback_t> m_postPluginEventCallbacks;
 
 		// server info
 		ServerInfo m_serverInfo;

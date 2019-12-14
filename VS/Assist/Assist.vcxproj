@@ -124,6 +124,12 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
+mkdir $(SolutionDir)BetteRConConsole\plugins
+)
+copy /y $(SolutionDir)plugins\Assist.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -136,6 +142,12 @@
     <Link>
       <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
+mkdir $(SolutionDir)BetteRConConsole\plugins
+)
+copy /y $(SolutionDir)plugins\Assist.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -148,6 +160,12 @@
     <Link>
       <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
+mkdir $(SolutionDir)BetteRConConsole\plugins
+)
+copy /y $(SolutionDir)plugins\Assist.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -164,6 +182,12 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>BetteRConFramework.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
+mkdir $(SolutionDir)BetteRConConsole\plugins
+)
+copy /y $(SolutionDir)plugins\Assist.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Assist.cpp" />

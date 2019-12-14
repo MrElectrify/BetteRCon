@@ -84,25 +84,25 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	m_playerInfoCallback = std::move(playerInfoCallback);
 
 	// register the event callbacks
-	RegisterCallback("player.onAuthenticated",
+	RegisterPrePluginCallback("player.onAuthenticated",
 		std::bind(&Server::HandleOnAuthenticated,
 			this, std::placeholders::_1));
-	RegisterCallback("player.onLeave",
+	RegisterPostPluginCallback("player.onLeave",
 		std::bind(&Server::HandleOnLeave,
 			this, std::placeholders::_1));
-	RegisterCallback("player.onTeamChange",
+	RegisterPrePluginCallback("player.onTeamChange",
 		std::bind(&Server::HandleOnTeamChange,
 			this, std::placeholders::_1));
-	RegisterCallback("player.onSquadChange",
+	RegisterPrePluginCallback("player.onSquadChange",
 		std::bind(&Server::HandleOnSquadChange,
 			this, std::placeholders::_1));
-	RegisterCallback("player.onKill",
+	RegisterPrePluginCallback("player.onKill",
 		std::bind(&Server::HandleOnKill,
 			this, std::placeholders::_1));
-	RegisterCallback("server.onRoundOverPlayers",
+	RegisterPrePluginCallback("server.onRoundOverPlayers",
 		std::bind(&Server::HandleOnRoundEnd,
 			this, std::placeholders::_1));
-	RegisterCallback("punkBuster.onMessage",
+	RegisterPrePluginCallback("punkBuster.onMessage",
 		std::bind(&Server::HandlePunkbusterMessage,
 			this, std::placeholders::_1));
 }
@@ -113,24 +113,10 @@ void Server::Disconnect()
 
 	ErrorCode_t ec;
 
+	ClearContainers();
+
 	// kill timers
 	m_serverInfoTimer.cancel(ec);
-
-	// disable plugins
-	for (const auto& plugin : m_plugins)
-	{
-		// make a copy, because the string_view's pointer is no longer valid once we free the library
-		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
-
-		plugin.second.pPlugin->Disable();
-		plugin.second.pDestructor(plugin.second.pPlugin);
-
-		// free the module
-		BFreeLibrary(plugin.second.hPluginModule);
-
-		// call the unload callback
-		m_pluginCallback(pluginName.data(), false, true, "");
-	}
 
 	if (ec)
 		throw ec;
@@ -209,8 +195,19 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 
 void Server::RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback)
 {
+	RegisterPrePluginCallback(eventName, std::move(eventCallback));
+}
+
+void Server::RegisterPrePluginCallback(const std::string& eventName, EventCallback_t&& eventCallback)
+{
 	// add the event callback to the list of callbacks for the event name
-	m_eventCallbacks.emplace(eventName, std::move(eventCallback));
+	m_prePluginEventCallbacks.emplace(eventName, std::move(eventCallback));
+}
+
+void Server::RegisterPostPluginCallback(const std::string& eventName, EventCallback_t&& eventCallback)
+{
+	// add the event callback to the list of callbacks for the event name
+	m_postPluginEventCallbacks.emplace(eventName, std::move(eventCallback));
 }
 
 bool Server::EnablePlugin(const std::string& pluginName)
@@ -271,8 +268,25 @@ Server::~Server()
 
 void Server::ClearContainers()
 {
+	// disable plugins
+	for (const auto& plugin : m_plugins)
+	{
+		// make a copy, because the string_view's pointer is no longer valid once we free the library
+		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
+
+		plugin.second.pPlugin->Disable();
+		plugin.second.pDestructor(plugin.second.pPlugin);
+
+		// free the module
+		BFreeLibrary(plugin.second.hPluginModule);
+
+		// call the unload callback
+		m_pluginCallback(pluginName.data(), false, true, "");
+	}
+
 	// clear the players and handlers
-	m_eventCallbacks.clear();
+	m_prePluginEventCallbacks.clear();
+	m_postPluginEventCallbacks.clear();
 	m_players.clear();
 	m_teams.clear();
 }
@@ -300,11 +314,17 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 		return m_disconnectCallback(ec);
 	}
 
-	// call each event handler
-	auto eventRange = m_eventCallbacks.equal_range(event->GetWords().front());
+	auto callHandlers = [&event = std::as_const(event)](const std::unordered_multimap<std::string, EventCallback_t>& eventHandlerMap)
+	{
+		// call each event handler
+		auto eventRange = eventHandlerMap.equal_range(event->GetWords().front());
 
-	for (auto it = eventRange.first; it != eventRange.second; ++it)
-		it->second(event->GetWords());
+		for (auto it = eventRange.first; it != eventRange.second; ++it)
+			it->second(event->GetWords());
+	};
+
+	// call prePlugin handlers before plugin handlers are called
+	callHandlers(m_prePluginEventCallbacks);
 
 	// call each plugin's event handler
 	for (const auto& plugin : m_plugins)
@@ -321,6 +341,9 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 		if (handlerIt != handlers.end())
 			handlerIt->second(event->GetWords());
 	}
+
+	// call postPlugin handlers after plugin handlers are called
+	callHandlers(m_postPluginEventCallbacks);
 
 	// call the main event handler
 	m_eventCallback(event->GetWords());
