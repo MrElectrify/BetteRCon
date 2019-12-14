@@ -175,11 +175,14 @@ namespace BetteRCon
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
 		
+		void HandlePlayerInfo(const std::vector<std::string>& playerInfo);
+
 		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
 		void HandleOnKill(const std::vector<std::string>& eventArgs);
+		void HandleOnRoundEnd(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
 
 		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);

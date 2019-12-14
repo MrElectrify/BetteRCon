@@ -99,6 +99,9 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	RegisterCallback("player.onKill",
 		std::bind(&Server::HandleOnKill,
 			this, std::placeholders::_1));
+	RegisterCallback("server.onRoundOverPlayers",
+		std::bind(&Server::HandleOnRoundEnd,
+			this, std::placeholders::_1));
 	RegisterCallback("punkBuster.onMessage",
 		std::bind(&Server::HandlePunkbusterMessage,
 			this, std::placeholders::_1));
@@ -404,6 +407,70 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 	}
 }
 
+void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
+{
+	if (playerInfo.at(1) != "10")
+	{
+		// the server is not ok, disconnect
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	/// TODO: Make this whole section work independently of variable count per player
+	// process each player
+	constexpr size_t offset = 13;
+	constexpr size_t numVar = 10;
+	size_t playerCount = std::stoi(playerInfo.at(12));
+
+	// set that none of the players were yet seen this check
+	for (auto& playerPair : m_players)
+		playerPair.second->seenThisCheck = false;
+
+	for (size_t i = 0; i < playerCount; ++i)
+	{
+		std::string playerName = playerInfo.at(offset + numVar * i);
+		std::shared_ptr<PlayerInfo> pPlayer;
+
+		auto playerIt = m_players.find(playerName);
+		if (playerIt == m_players.end())
+			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+		else
+			pPlayer = playerIt->second;
+
+		pPlayer->name = playerName;
+		pPlayer->GUID = playerInfo.at(offset + numVar * i + 1);
+		pPlayer->teamId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 2)));
+		pPlayer->squadId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 3)));
+		pPlayer->kills = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 4)));
+		pPlayer->deaths = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 5)));
+		pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
+		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
+		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
+		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+		pPlayer->seenThisCheck = true;
+
+		// add the player to their squad
+		AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
+	}
+
+	for (auto playerIt = m_players.begin(); playerIt != m_players.end(); ++playerIt)
+	{
+		// if we didn't see them in the list, remove them
+		if (playerIt->second->seenThisCheck == false)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
+
+			// delete the player
+			RemovePlayerFromSquad(playerIt->second, playerIt->second->teamId, playerIt->second->squadId);
+			m_players.erase(playerIt);
+		}
+	}
+
+	// call the playerInfo callback
+	m_playerInfoCallback(m_players, m_teams);
+}
+
 void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 {
 	// onAuthenticated means they successfully completed the client/server handshake, fb::online::OnlineClient::onConnected has been called, and they are connected. create a player for them
@@ -502,6 +569,11 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 
 	// increment killer's kills
 	++killerIt->second->kills;
+}
+
+void Server::HandleOnRoundEnd(const std::vector<std::string>& eventArgs)
+{
+	HandlePlayerInfo(eventArgs);
 }
 
 void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
@@ -811,9 +883,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 			this, std::placeholders::_1));
 	}
 
-	/// TODO: Make this whole section work independently of variable count per player
-	if (playerInfo.at(0) != "OK" ||
-		playerInfo.at(1) != "10")
+	if (playerInfo.at(0) != "OK")
 	{
 		// the server is not ok, disconnect
 		ErrorCode_t ec;
@@ -821,57 +891,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
-	// process each player
-	constexpr size_t offset = 13;
-	constexpr size_t numVar = 10;
-	size_t playerCount = std::stoi(playerInfo.at(12));
-
-	// set that none of the players were yet seen this check
-	for (auto& playerPair : m_players)
-		playerPair.second->seenThisCheck = false;
-
-	for (size_t i = 0; i < playerCount; ++i)
-	{
-		std::string playerName = playerInfo.at(offset + numVar * i);
-		std::shared_ptr<PlayerInfo> pPlayer;
-
-		auto playerIt = m_players.find(playerName);
-		if (playerIt == m_players.end())
-			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
-		else
-			pPlayer = playerIt->second;
-
-		pPlayer->name = playerName;
-		pPlayer->GUID = playerInfo.at(offset + numVar * i + 1);
-		pPlayer->teamId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 2)));
-		pPlayer->squadId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 3)));
-		pPlayer->kills = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 4)));
-		pPlayer->deaths = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 5)));
-		pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
-		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
-		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
-		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
-		pPlayer->seenThisCheck = true;
-
-		// add the player to their squad
-		AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
-	}
-
-	for (auto playerIt = m_players.begin(); playerIt != m_players.end(); ++playerIt)
-	{
-		// if we didn't see them in the list, remove them
-		if (playerIt->second->seenThisCheck == false)
-		{
-			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
-
-			// delete the player
-			RemovePlayerFromSquad(playerIt->second, playerIt->second->teamId, playerIt->second->squadId);
-			m_players.erase(playerIt);
-		}
-	}
-
-	// call the playerInfo callback
-	m_playerInfoCallback(m_players, m_teams);
+	HandlePlayerInfo(playerInfo);
 
 	// reset the timer and wait again
 	m_playerInfoTimer.expires_from_now(std::chrono::seconds(30));
