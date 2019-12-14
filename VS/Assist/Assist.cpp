@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-// Assist allows players to assist the losing team if they are unable to switch manually.
+// Assist allows players to assist the losing team if they are unable to switch manually. ONLY FOR CONQUEST LARGE RIGHT NOW
 BEGINPLUGIN(Assist)
 	CREATEPLUGIN(Assist)
 	{
@@ -34,8 +34,15 @@ BEGINPLUGIN(Assist)
 	{
 		Plugin::Enable();
 
-		// check serverInfo to see if we are in endscreen
+		// check serverInfo to see if we are conquest or in endscreen
 		const auto& serverInfo = GetServerInfo();
+
+		if (serverInfo.m_gameMode.find("Conquest") == std::string::npos)
+		{
+			BetteRCon::Internal::g_stdErrLog << "[Assist]: Failed to start: Mode must be ConquestSmall or ConquestLarge\n";
+			Plugin::Disable();
+			return;
+		}
 
 		m_inRound = true;
 		for (const auto teamTickets : serverInfo.m_scores.m_teamScores)
@@ -49,6 +56,21 @@ BEGINPLUGIN(Assist)
 
 		// in case we are starting mid-round
 		m_levelStart = std::chrono::system_clock::now();
+
+		// get ticket multiplier
+		SendCommand({ "vars.gameModeCounter" }, [this](const BetteRCon::Server::ErrorCode_t& ec, const std::vector<std::string>& response)
+		{
+			if (ec)
+				return;
+
+			if (response.size() != 2 ||
+				response[0] != "OK")
+			{
+				BetteRCon::Internal::g_stdErrLog << "[Assist]: Failed to get ticket multiplier\n";
+			}
+
+			m_gameModeCounter = std::stoi(response[1]) / 100.f;
+		});
 
 		BetteRCon::Internal::g_stdOutLog << "[Assist]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
@@ -85,13 +107,16 @@ BEGINPLUGIN(Assist)
 			}
 
 			// this is a new entry. read the size of the name
-			const auto nameLen = *reinterpret_cast<uint8_t*>(&dbData[offset += sizeof(uint8_t)]);
+			const auto nameLen = *reinterpret_cast<uint8_t*>(&dbData[offset]);
+			offset += sizeof(uint8_t);
 
 			// read the player's name
-			std::string playerName(&dbData[offset += nameLen], nameLen);
+			std::string playerName(&dbData[offset], nameLen);
+			offset += nameLen;
 
 			// add their entry and copy the data in
-			memcpy(&m_playerStrengthDatabase.emplace(std::move(playerName), PlayerStrengthEntry{}).first->second, &dbData[offset += sizeof(PlayerStrengthEntry)], sizeof(PlayerStrengthEntry));
+			memcpy(&m_playerStrengthDatabase.emplace(std::move(playerName), PlayerStrengthEntry{}).first->second, &dbData[offset], sizeof(PlayerStrengthEntry));
+			offset += sizeof(PlayerStrengthEntry);
 		}
 	}
 
@@ -112,11 +137,11 @@ BEGINPLUGIN(Assist)
 				dbData.push_back(c);
 
 			// make space for their data
-			for (size_t i = 0; i < sizeof(decltype(entry.second)); ++i)
+			for (size_t i = 0; i < sizeof(PlayerStrengthEntry); ++i)
 				dbData.push_back('\0');
 
 			// copy their data
-			memcpy(&dbData[dbData.size() - 1 - sizeof(decltype(entry.second))], &entry.second, sizeof(decltype(entry.second)));
+			memcpy(&dbData[dbData.size() - sizeof(PlayerStrengthEntry)], &entry.second, sizeof(PlayerStrengthEntry));
 		}
 
 		// try to open the output database
@@ -166,6 +191,10 @@ BEGINPLUGIN(Assist)
 
 		const auto numTeams = serverInfo.m_scores.m_teamScores.size();
 
+		// there are not loaded teams yet
+		if (numTeams == 0)
+			return;
+
 		std::vector<float> playerStrengths(numTeams);
 		std::vector<float> playerKDTotals(numTeams);
 		std::vector<float> playerScoreTotals(numTeams);
@@ -180,6 +209,11 @@ BEGINPLUGIN(Assist)
 			if (pPlayer->teamId == 0)
 				continue;
 
+			// add team telemetry
+			++teamSizes[pPlayer->teamId - 1];
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths > 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerScoreTotals[pPlayer->teamId - 1] += static_cast<float>(pPlayer->score);
+
 			// see if they are already in the database
 			const auto playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
 			if (playerStrengthIt == m_playerStrengthDatabase.end())
@@ -191,9 +225,6 @@ BEGINPLUGIN(Assist)
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths > 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 1.f;
-			playerScoreTotals[pPlayer->teamId - 1] += static_cast<float>(pPlayer->score);
-			++teamSizes[pPlayer->teamId];
 		}
 
 		// see how they did and update their entry
@@ -215,31 +246,36 @@ BEGINPLUGIN(Assist)
 		const float friendlyStrength = playerStrengths[pPlayer->teamId - 1];
 
 		// multipliers
-		const auto roundTime = (pPlayer->firstSeen > m_levelStart) ? (std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart) : 1.f;
+		const auto minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
+		const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
+
+		const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? ((std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart)) : 1.f;
+		const auto roundTime = levelAttendance * ((maxScore - minScore) / maxScore);
 		const auto strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
 		// friendly stats for comparison
-		const auto friendlyAvgKDR = playerKDTotals[pPlayer->teamId] / teamSizes[pPlayer->teamId];
-		const auto friendlyAvgScore = playerScoreTotals[pPlayer->teamId] / teamSizes[pPlayer->teamId];
+		const auto friendlyAvgKDR = playerKDTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
+		const auto friendlyAvgScore = playerScoreTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
 
 		const auto totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
-		const auto weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples * strengthMultiplier;
-		const auto roundRelativeKDR = (friendlyAvgKDR != 0.f) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) / friendlyAvgKDR : 1.f;
-		const auto weightedRoundRelativeKDR = roundRelativeKDR * totalTime;
+		const auto weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
+		const auto roundRelativeKDR = (friendlyAvgKDR != 0.f) ? ((pPlayer->deaths != 0) ? static_cast<float>(pPlayer->kills) / pPlayer->deaths : 0.f) / friendlyAvgKDR : 1.f;
+		const auto weightedRoundRelativeKDR = roundRelativeKDR * totalTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeKDR = (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime;
 
 		const auto weightedTotalRelativeScore = playerStrengthEntry.relativeScore * playerStrengthEntry.roundSamples;
 		const auto roundRelativeScore = (friendlyAvgScore != 0.f) ? pPlayer->score / friendlyAvgScore : 1.f;
-		const auto weightedRoundRelativeScore = roundRelativeScore * totalTime;
+		const auto weightedRoundRelativeScore = roundRelativeScore * totalTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeScore = (weightedTotalRelativeScore + weightedRoundRelativeScore) / totalTime;
 
-		const auto weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples * strengthMultiplier;
+		const auto weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
 		const auto roundWinLossRatio = 0.f;
+		const auto weightedRoundWinLossRatio = roundWinLossRatio * strengthMultiplier;
 
-		playerStrengthEntry.winLossRatio = (weightedTotalWL + roundWinLossRatio) / totalTime;
+		playerStrengthEntry.winLossRatio = (weightedTotalWL + weightedRoundWinLossRatio) / totalTime;
 
 		playerStrengthEntry.roundSamples += roundTime;
 	}
@@ -273,6 +309,11 @@ BEGINPLUGIN(Assist)
 			if (pPlayer->teamId == 0)
 				continue;
 
+			// add team telemetry
+			++teamSizes[pPlayer->teamId - 1];
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths > 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerScoreTotals[pPlayer->teamId - 1] += static_cast<float>(pPlayer->score);
+
 			// see if they are already in the database
 			const auto playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
 			if (playerStrengthIt == m_playerStrengthDatabase.end())
@@ -284,9 +325,6 @@ BEGINPLUGIN(Assist)
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
-			playerKDTotals[pPlayer->teamId - 1] += (static_cast<float>(pPlayer->kills) / pPlayer->deaths);
-			playerScoreTotals[pPlayer->teamId - 1] += static_cast<float>(pPlayer->score);
-			++teamSizes[pPlayer->teamId];
 		}
 
 		// now that we have the strengths, see how each player did
@@ -316,31 +354,36 @@ BEGINPLUGIN(Assist)
 			const float friendlyStrength = playerStrengths[pPlayer->teamId - 1];
 
 			// multipliers
-			const auto roundTime = (pPlayer->firstSeen > m_levelStart) ? (std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart) : 1.f;
+			const auto minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
+			const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
+
+			const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? ((std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart)) : 1.f;
+			const auto roundTime = levelAttendance * ((maxScore - minScore) / maxScore);
 			const auto strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
 			// friendly stats for comparison
-			const auto friendlyAvgKDR = playerKDTotals[pPlayer->teamId] / teamSizes[pPlayer->teamId];
-			const auto friendlyAvgScore = playerScoreTotals[pPlayer->teamId] / teamSizes[pPlayer->teamId];
+			const auto friendlyAvgKDR = playerKDTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
+			const auto friendlyAvgScore = playerScoreTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
 
 			const auto totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
-			const auto weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples * strengthMultiplier;
-			const auto roundRelativeKDR = (friendlyAvgKDR != 0.f) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) / friendlyAvgKDR : 1.f;
-			const auto weightedRoundRelativeKDR = roundRelativeKDR * totalTime;
+			const auto weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
+			const auto roundRelativeKDR = (friendlyAvgKDR != 0.f) ? ((pPlayer->deaths != 0) ? static_cast<float>(pPlayer->kills) / pPlayer->deaths : 0.f) / friendlyAvgKDR : 1.f;
+			const auto weightedRoundRelativeKDR = roundRelativeKDR * totalTime * strengthMultiplier;
 
 			playerStrengthEntry.relativeKDR = (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime;
 
 			const auto weightedTotalRelativeScore = playerStrengthEntry.relativeScore * playerStrengthEntry.roundSamples;
 			const auto roundRelativeScore = (friendlyAvgScore != 0.f) ? pPlayer->score / friendlyAvgScore : 1.f;
-			const auto weightedRoundRelativeScore = roundRelativeScore * totalTime;
+			const auto weightedRoundRelativeScore = roundRelativeScore * totalTime * strengthMultiplier;
 
 			playerStrengthEntry.relativeScore = (weightedTotalRelativeScore + weightedRoundRelativeScore) / totalTime;
 
-			const auto weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples * strengthMultiplier;
+			const auto weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
 			const auto roundWinLossRatio = 0.f;
+			const auto weightedRoundWinLossRatio = roundWinLossRatio * strengthMultiplier;
 
-			playerStrengthEntry.winLossRatio = (weightedTotalWL + roundWinLossRatio) / totalTime;
+			playerStrengthEntry.winLossRatio = (weightedTotalWL + weightedRoundWinLossRatio) / totalTime;
 
 			playerStrengthEntry.roundSamples += roundTime;
 		}
@@ -358,7 +401,8 @@ BEGINPLUGIN(Assist)
 		float winLossRatio;
 	};
 
-	bool m_inRound;
+	bool m_inRound = true;
+	float m_gameModeCounter = 1.f;
 	std::chrono::system_clock::time_point m_levelStart;
 	std::unordered_map<std::string, PlayerStrengthEntry> m_playerStrengthDatabase;
 ENDPLUGIN(Assist)
