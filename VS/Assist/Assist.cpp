@@ -3,6 +3,7 @@
 // STL
 #include <fstream>
 #include <streambuf>
+#include <queue>
 #include <unordered_map>
 #include <vector>
 
@@ -27,6 +28,9 @@ BEGINPLUGIN(Assist)
 
 		// listen for serverInfo so we can calculate the ticket deficit
 		RegisterHandler("bettercon.serverInfo", std::bind(&Assist::HandleServerInfo, this, std::placeholders::_1));
+
+		// listen for playerInfo too so we can execute moves in the queue with updated team information
+		RegisterHandler("bettercon.playerInfo", std::bind(&Assist::HandlePlayerInfo, this, std::placeholders::_1));
 	}
 
 	AUTHORPLUGIN("MrElectrify")
@@ -87,6 +91,21 @@ BEGINPLUGIN(Assist)
 			}
 
 			m_gameModeCounter = std::stoi(response[1]) / 100.f;
+		});
+
+		// get server type
+		SendCommand({ "vars.serverType" }, [this](const BetteRCon::Server::ErrorCode_t& ec, const std::vector<std::string>& response)
+		{
+			if (ec)
+				return;
+
+			if (response.size() != 2 ||
+				response[0] != "OK")
+			{
+				BetteRCon::Internal::g_stdErrLog << "[Assist]: Failed to get ticket multiplier\n";
+			}
+
+			m_isNotOfficial = response[1] != "OFFICIAL";
 		});
 
 		BetteRCon::Internal::g_stdOutLog << "[Assist]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
@@ -173,15 +192,9 @@ BEGINPLUGIN(Assist)
 		const std::vector<float>& playerStrengths, const std::vector<float>& playerKDTotals, const std::vector<float>& playerKPRTotals, const std::vector<float>& playerSPRTotals, 
 		const std::vector<uint32_t>& teamSizes, PlayerStrengthEntry& playerStrengthEntry, bool roundEnd = false, bool win = false)
 	{
-		float enemyStrength = 0.f;
-		for (size_t i = 0; i < numTeams; ++i)
-		{
-			if (i == pPlayer->teamId - 1)
-				continue;
-
-			enemyStrength += playerStrengths.at(i);
-		}
-		const float friendlyStrength = playerStrengths[pPlayer->teamId - 1];
+		// teamIds start at 1, but our vector starts at 0. it is size 2
+		const auto enemyStrength = playerStrengths[pPlayer->teamId % 2];
+		const auto friendlyStrength = playerStrengths[pPlayer->teamId - 1];
 
 		// multipliers
 		const auto minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
@@ -238,7 +251,140 @@ BEGINPLUGIN(Assist)
 		if (chatMessage.find("!assist") == std::string::npos)
 			return;
 
-		/// TODO: logic!
+		const auto& players = GetPlayers();
+
+		// see if they are a player
+		const auto playerIt = players.find(playerName);
+		if (playerIt == players.end())
+			return;
+
+		const auto& pPlayer = playerIt->second;
+
+		if (pPlayer->teamId == 0 ||
+			pPlayer->type != 0)
+		{
+			SendChatMessage("[Assist] You are not a player!", pPlayer);
+			return;
+		}
+
+		// see if the server is not official
+		if (m_isNotOfficial == false)
+		{
+			SendChatMessage("[Assist] Assist is not possible on official!", pPlayer);
+			return;
+		}
+
+		// see if the game is active
+		if (m_inRound == false ||
+			m_lastScores.size() != 2)
+		{
+			SendChatMessage("[Assist] The round must be in play in order to use assist!");
+			return;
+		}
+
+		// see if it has been long enough
+		constexpr std::chrono::minutes timeBeforeAssist(0);
+
+		auto timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
+		if (timeLeft.count() > 0)
+		{
+			SendChatMessage("[Assist] " + std::to_string(timeLeft.count()) + " seconds left before players are allowed to use assist!", pPlayer);
+			return;
+		}
+
+		// see if their team is winning
+		const auto enemyScore = m_lastScores[pPlayer->teamId % 2];
+		const auto friendlyScore = m_lastScores[pPlayer->teamId - 1];
+
+		const auto& serverInfo = GetServerInfo();
+		const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
+
+		// see if it is too close to the end of the round
+		if (enemyScore < maxScore / 4 ||
+			friendlyScore < maxScore / 4)
+		{
+			SendChatMessage("[Assist] Less than 25% of tickets are left, you cannot use assist!", pPlayer);
+			return;
+		}
+
+		const auto enemyScoreDifference = m_lastScoreDiffs[pPlayer->teamId % 2];
+		const auto friendlyScoreDifference = m_lastScoreDiffs[pPlayer->teamId - 1];
+
+		if (enemyScore > friendlyScore)
+		{
+			// the enemy is winning. they have no reason to switch. see if they are coming back
+			if (enemyScoreDifference > friendlyScoreDifference)
+				SendChatMessage("[Assist] Your team is coming back, but the enemy is still winning!", pPlayer);
+			else
+				SendChatMessage("[Assist] The enemy team is winning by over 10% and is still gaining!", pPlayer);
+			return;
+		}
+		else if (friendlyScoreDifference > enemyScoreDifference)
+		{
+			// the enemy is coming back
+			SendChatMessage("[Assist] The enemy is losing, but they are making a comeback!", pPlayer);
+			return;
+		}
+
+		const auto numTeams = serverInfo.m_scores.m_teamScores.size();
+
+		std::vector<float> playerStrengths(numTeams);
+		std::vector<uint32_t> teamSizes(numTeams);
+
+		// first find the total strength for each team
+		for (const auto& player : players)
+		{
+			const auto& pPlayer = player.second;
+
+			// make sure they are on a playing team
+			if (pPlayer->teamId == 0)
+				continue;
+
+			++teamSizes[pPlayer->teamId - 1];
+
+			// see if they are already in the database
+			const auto playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
+			if (playerStrengthIt == m_playerStrengthDatabase.end())
+				continue;
+
+			const auto& playerStrengthEntry = playerStrengthIt->second;
+
+			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 2);
+
+			// don't include the neutral team's info
+			playerStrengths[pPlayer->teamId - 1] += playerStrength;
+		}
+
+		// see if the enemy team is at least 20% stronger than they are
+		const auto friendlyStrength = playerStrengths[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
+		const auto enemyStrength = playerStrengths[pPlayer->teamId % 2] / teamSizes[pPlayer->teamId % 2];
+		
+		const auto strengthRatio = enemyStrength / friendlyStrength;
+
+		if (strengthRatio > 1.2f)
+		{
+			const auto strengthPctDiff = static_cast<uint32_t>((strengthRatio - 1.f) * 100);
+			SendChatMessage("[Assist] The enemy team is " + std::to_string(strengthPctDiff) + "% stronger than your team!", pPlayer);
+			return;
+		}
+
+		// see if they assisted within the last 5 minutes
+		constexpr std::chrono::minutes assistTimeout(5);
+		
+		const auto lastAssistIt = m_playerLastAssists.find(playerName);
+		if (lastAssistIt != m_playerLastAssists.end())
+		{
+			if (std::chrono::system_clock::now() < (lastAssistIt->second + assistTimeout))
+			{
+				SendChatMessage("[Assist] You can only use assist once every 5 minutes!", pPlayer);
+				return;
+			}
+		}
+		
+		// they are good. add them to the move queue
+		m_moveQueue.push(playerName);
+		m_playerLastAssists.emplace(playerName, std::chrono::system_clock::now());
+		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
 	}
 
 	void HandlePlayerLeave(const std::vector<std::string>& eventArgs)
@@ -301,7 +447,7 @@ BEGINPLUGIN(Assist)
 
 			const auto& playerStrengthEntry = playerStrengthIt->second;
 
-			const auto playerStrength = playerStrengthEntry.relativeKDR + playerStrengthEntry.relativeKPR + playerStrengthEntry.relativeSPR + (2 * playerStrengthEntry.winLossRatio);
+			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 2);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -316,8 +462,6 @@ BEGINPLUGIN(Assist)
 		const auto& pPlayer = playerIt->second;
 
 		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry);
-	
-		WritePlayerDatabase();
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventArgs)
@@ -365,7 +509,7 @@ BEGINPLUGIN(Assist)
 
 			const auto& playerStrengthEntry = playerStrengthIt->second;
 
-			const auto playerStrength = playerStrengthEntry.relativeKDR + playerStrengthEntry.relativeKPR + playerStrengthEntry.relativeSPR + (2 * playerStrengthEntry.winLossRatio);
+			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 2);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -413,10 +557,49 @@ BEGINPLUGIN(Assist)
 			m_lastScores.resize(scores.size());
 
 		for (size_t i = 0; i < scores.size(); ++i)
-			m_lastScoreDiffs[i] = scores[i] - m_lastScores[i];
+			m_lastScoreDiffs[i] = std::fabs(scores[i] - m_lastScores[i]);
 
 		// save the current scores as the last scores
 		m_lastScores = scores;
+	}
+
+	void HandlePlayerInfo(const std::vector<std::string>& eventArgs)
+	{
+		if (m_inRound == false)
+			return;
+
+		const auto& serverInfo = GetServerInfo();
+		const auto& players = GetPlayers();
+		
+		const auto maxTeamSize = serverInfo.m_maxPlayerCount / serverInfo.m_scores.m_teamScores.size();
+
+		while (m_moveQueue.size() > 0)
+		{
+			const auto& firstPlayer = m_moveQueue.front();
+
+			// find the player in our player list
+			const auto playerIt = players.find(firstPlayer);
+			if (playerIt == players.end())
+			{
+				m_moveQueue.pop();
+				continue;
+			}
+
+			const auto& pPlayer = playerIt->second;
+
+			// make sure their team has space
+			uint32_t teamSize = 0;
+			for (const auto& player : players)
+				teamSize += (player.second->teamId == pPlayer->teamId);
+
+			if (teamSize >= maxTeamSize)
+				// there is not enough space. wait until the next time around
+				break;
+
+			// we are good to switch them. let's do it
+			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
+			m_moveQueue.pop();
+		}
 	}
 
 	// scores
@@ -425,10 +608,17 @@ BEGINPLUGIN(Assist)
 	std::chrono::system_clock::time_point m_lastScoreCalculation;
 
 	// round stuff
+	bool m_isNotOfficial = true;
 	bool m_inRound = true;
 	float m_gameModeCounter = 1.f;
 	std::chrono::system_clock::time_point m_levelStart;
 
+	// assists
+	std::unordered_map<std::string, std::chrono::system_clock::time_point> m_playerLastAssists;
+	
 	// strength
 	std::unordered_map<std::string, PlayerStrengthEntry> m_playerStrengthDatabase;
+
+	// move queue
+	std::queue<std::string> m_moveQueue;
 ENDPLUGIN(Assist)
