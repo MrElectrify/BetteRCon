@@ -96,6 +96,17 @@ namespace BetteRCon
 		// If the plugin is enabled, attempts to send a command to the server, and calls recvCallback when the response is received.
 		// RecvCallback_t must not block, as it is called from the worker thread
 		void SendCommand(const std::vector<std::string>& command, Server::RecvCallback_t&& recvCallback) { if (IsEnabled() == true) m_pServer->SendCommand(command, std::move(recvCallback)); }
+
+		// Gets server info such as name, teams
+		const Server::ServerInfo& GetServerInfo() const noexcept { return m_pServer->GetServerInfo(); }
+		// Gets server players
+		const Server::PlayerMap_t& GetPlayers() const noexcept { return m_pServer->GetPlayers(); }
+		// Gets team map
+		const Server::TeamMap_t& GetTeams() const noexcept { return m_pServer->GetTeams(); }
+		// Gets team squads
+		const Server::SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept { return m_pServer->GetSquadMap(teamId); }
+		// Gets squad players
+		const Server::PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept { return m_pServer->GetSquadPlayers(teamId, squadId); }
 	private:
 		bool m_enabled = false;
 
