@@ -891,6 +891,22 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
+	// call each plugin's serverInfo handler
+	for (const auto& plugin : m_plugins)
+	{
+		// make sure the plugin is enabled
+		if (plugin.second.pPlugin->IsEnabled() == false)
+			continue;
+
+		const auto& handlers = plugin.second.pPlugin->GetEventHandlers();
+
+		// call their handler
+		auto handlerIt = handlers.find("bettercon.serverInfo");
+
+		if (handlerIt != handlers.end())
+			handlerIt->second({ "bettercon.serverInfo" });
+	}
+
 	// call the serverInfo callback
 	m_serverInfoCallback(m_serverInfo);
 

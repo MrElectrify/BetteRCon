@@ -391,6 +391,7 @@ BEGINPLUGIN(Assist)
 
 	void HandleServerInfo(const std::vector<std::string>& eventArgs)
 	{
+		// serverInfo doesn't actually give us the event information, we need to retrieve that from the server
 
 	}
 
