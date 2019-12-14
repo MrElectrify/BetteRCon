@@ -67,6 +67,10 @@ BEGINPLUGIN(Assist)
 			}
 		}
 
+		// save the scores
+		m_lastScores = serverInfo.m_scores.m_teamScores;
+		m_lastScoreDiffs.resize(m_lastScores.size());
+
 		// in case we are starting mid-round
 		m_levelStart = std::chrono::system_clock::now();
 
@@ -391,12 +395,39 @@ BEGINPLUGIN(Assist)
 
 	void HandleServerInfo(const std::vector<std::string>& eventArgs)
 	{
-		// serverInfo doesn't actually give us the event information, we need to retrieve that from the server
+		if (m_inRound == false)
+			return;
 
+		// serverInfo doesn't actually give us the event information, we need to retrieve that from the server
+		const auto& serverInfo = GetServerInfo();
+
+		// fetch the latest scores
+		const auto& scores = serverInfo.m_scores.m_teamScores;
+
+		// calculate score differences
+		if (m_lastScoreDiffs.size() != scores.size())
+			m_lastScoreDiffs.resize(scores.size());
+
+		if (m_lastScores.size() != scores.size())
+			m_lastScores.resize(scores.size());
+
+		for (size_t i = 0; i < scores.size(); ++i)
+			m_lastScoreDiffs[i] = scores[i] - m_lastScores[i];
+
+		// save the current scores as the last scores
+		m_lastScores = scores;
 	}
 
+	// scores
+	std::vector<int32_t> m_lastScores;
+	std::vector<int32_t> m_lastScoreDiffs;
+	std::chrono::system_clock::time_point m_lastScoreCalculation;
+
+	// round stuff
 	bool m_inRound = true;
 	float m_gameModeCounter = 1.f;
 	std::chrono::system_clock::time_point m_levelStart;
+
+	// strength
 	std::unordered_map<std::string, PlayerStrengthEntry> m_playerStrengthDatabase;
 ENDPLUGIN(Assist)
