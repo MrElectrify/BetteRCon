@@ -16,6 +16,7 @@ std::mutex g_mutex;
 bool g_loggedIn = false;
 bool g_loginComplete = false;
 bool g_responseReceived = false;
+bool g_loadedPlugins = false;
 
 int main(int argc, char* argv[])
 {
@@ -72,6 +73,13 @@ int main(int argc, char* argv[])
 			g_conVar.notify_one();
 		}, 
 			[](const Server::ErrorCode_t& ec) {},
+			[]()
+		{
+			// notify the main thread that we finished loading plugins
+			std::lock_guard lock(g_mutex);
+			g_loadedPlugins = true;
+			g_conVar.notify_one();
+		},
 			[](const std::string& pluginName, const bool load, const bool success, const std::string& failReason)
 		{
 			if (load == true)
@@ -106,7 +114,7 @@ int main(int argc, char* argv[])
 			[](const Server::ServerInfo& serverInfo)
 		{
 			BetteRCon::Internal::g_stdOutLog << "Got serverInfo for " << serverInfo.m_serverName << ": " << serverInfo.m_playerCount << "/" << serverInfo.m_maxPlayerCount << " (" << serverInfo.m_blazePlayerCount << ")\n";
-		}, 
+		},
 			[] (const Server::PlayerMap_t& players, const Server::TeamMap_t& teams) 
 		{
 			BetteRCon::Internal::g_stdOutLog << "PlayerInfo updated with " << players.size() << " players and " << teams.size() << " teams\n";
@@ -144,6 +152,12 @@ int main(int argc, char* argv[])
 		{
 			BetteRCon::Internal::g_stdErrLog << "Failed to login\n";
 			return 1;
+		}
+
+		{
+			// wait until we get server info
+			std::unique_lock lock(g_mutex);
+			g_conVar.wait(lock, [] { return g_loadedPlugins == true; });
 		}
 
 		// enable the plugin

@@ -26,7 +26,9 @@ const std::string Server::s_LoginResultStr[] = { "OK", "Password was not set by 
 int32_t Server::s_lastSequence = 0;
 
 Server::Server() 
-	: m_connection(m_worker, 
+	: m_gotServerInfo(false), m_gotServerPlayers(false),
+	m_initializedServer(false),
+	m_connection(m_worker, 
 		std::bind(&Server::HandleEvent, this, 
 			std::placeholders::_1, std::placeholders::_2)),
 	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker), 
@@ -69,7 +71,7 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
@@ -79,32 +81,10 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	// store the callbacks
 	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
+	m_finishedLoadingPluginsCallback = std::move(finishedLoadingPluginsCallback);
 	m_pluginCallback = std::move(pluginCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	m_playerInfoCallback = std::move(playerInfoCallback);
-
-	// register the event callbacks
-	RegisterPrePluginCallback("player.onAuthenticated",
-		std::bind(&Server::HandleOnAuthenticated,
-			this, std::placeholders::_1));
-	RegisterPostPluginCallback("player.onLeave",
-		std::bind(&Server::HandleOnLeave,
-			this, std::placeholders::_1));
-	RegisterPrePluginCallback("player.onTeamChange",
-		std::bind(&Server::HandleOnTeamChange,
-			this, std::placeholders::_1));
-	RegisterPrePluginCallback("player.onSquadChange",
-		std::bind(&Server::HandleOnSquadChange,
-			this, std::placeholders::_1));
-	RegisterPrePluginCallback("player.onKill",
-		std::bind(&Server::HandleOnKill,
-			this, std::placeholders::_1));
-	RegisterPrePluginCallback("server.onRoundOverPlayers",
-		std::bind(&Server::HandleOnRoundEnd,
-			this, std::placeholders::_1));
-	RegisterPrePluginCallback("punkBuster.onMessage",
-		std::bind(&Server::HandlePunkbusterMessage,
-			this, std::placeholders::_1));
 }
 
 void Server::Disconnect()
@@ -268,6 +248,10 @@ Server::~Server()
 
 void Server::ClearContainers()
 {
+	// reset serverInfo status
+	m_gotServerInfo = false;
+	m_gotServerPlayers = false;
+
 	// disable plugins
 	for (const auto& plugin : m_plugins)
 	{
@@ -414,9 +398,6 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			&Server::HandlePlayerListTimerExpire,
 			this, std::placeholders::_1));
 
-		// load the plugins
-		LoadPlugins();
-
 		// call the login callback
 		return loginCallback(LoginResult_OK);
 	}
@@ -459,7 +440,10 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 
 		auto playerIt = m_players.find(playerName);
 		if (playerIt == m_players.end())
+		{
 			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+			pPlayer->firstSeen = std::chrono::system_clock::now();
+		}
 		else
 			pPlayer = playerIt->second;
 
@@ -801,6 +785,36 @@ void Server::LoadPlugins()
 		// call the callback
 		m_pluginCallback(pPlugin->GetPluginName().data(), true, true, "");
 	}
+
+	m_finishedLoadingPluginsCallback();
+}
+
+void Server::InitializeServer()
+{
+	// register the event callbacks
+	RegisterPrePluginCallback("player.onAuthenticated",
+		std::bind(&Server::HandleOnAuthenticated,
+			this, std::placeholders::_1));
+	RegisterPostPluginCallback("player.onLeave",
+		std::bind(&Server::HandleOnLeave,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onTeamChange",
+		std::bind(&Server::HandleOnTeamChange,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onSquadChange",
+		std::bind(&Server::HandleOnSquadChange,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onKill",
+		std::bind(&Server::HandleOnKill,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("server.onRoundOverPlayers",
+		std::bind(&Server::HandleOnRoundEnd,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("punkBuster.onMessage",
+		std::bind(&Server::HandlePunkbusterMessage,
+			this, std::placeholders::_1));
+
+	LoadPlugins();
 }
 
 void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::string>& serverInfo)
@@ -880,6 +894,14 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	// call the serverInfo callback
 	m_serverInfoCallback(m_serverInfo);
 
+	m_gotServerInfo = true;
+	if (m_initializedServer == false &&
+		m_gotServerPlayers == true)
+	{
+		InitializeServer();
+		m_initializedServer = true;
+	}
+
 	// reset the timer and wait again
 	m_serverInfoTimer.expires_from_now(std::chrono::seconds(30));
 	m_serverInfoTimer.async_wait(std::bind(
@@ -922,6 +944,14 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	}
 
 	HandlePlayerInfo(playerInfo);
+
+	m_gotServerPlayers = true;
+	if (m_initializedServer == false &&
+		m_gotServerInfo == true)
+	{
+		InitializeServer();
+		m_initializedServer = true;
+	}
 
 	// reset the timer and wait again
 	m_playerInfoTimer.expires_from_now(std::chrono::seconds(30));
