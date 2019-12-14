@@ -107,6 +107,17 @@ namespace BetteRCon
 		const Server::SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept { return m_pServer->GetSquadMap(teamId); }
 		// Gets squad players
 		const Server::PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept { return m_pServer->GetSquadPlayers(teamId, squadId); }
+
+		// Sends a chat message to everybody, of max 128 characters
+		void SendChatMessage(const std::string& message) { SendCommand({ "admin.say", message, "all" }, {}); }
+		// Sends a chat message to a player, of max 128 characters
+		void SendChatMessage(const std::string& message, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.say", message, "player", pPlayer->name }, {}); }
+		// Sends a chat message to a squad, of max 128 characters
+		void SendChatMessage(const std::string& message, const uint8_t teamId, const uint8_t squadId) { SendCommand({ "admin.say", message, "squad", std::to_string(teamId), std::to_string(squadId) }, {}); }
+		// Sends a chat message to a team, of max 128 characters
+		void SendChatMessage(const std::string& message, const uint8_t teamId) { SendCommand({ "admin.say", message, "team", std::to_string(teamId) }, {}); }
+		// Sends a chat message to a set of players, of max 128 characters
+		void SendChatMessage(const std::string& message, const std::vector<const std::shared_ptr<Server::PlayerInfo>>& players) { for (const auto& pPlayer : players) SendChatMessage(message, pPlayer); }
 	private:
 		bool m_enabled = false;
 
