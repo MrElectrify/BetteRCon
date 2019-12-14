@@ -361,7 +361,7 @@ BEGINPLUGIN(Assist)
 		
 		const auto strengthRatio = enemyStrength / friendlyStrength;
 
-		if (strengthRatio > 1.2f)
+		if (strengthRatio > 1.5f)
 		{
 			const auto strengthPctDiff = static_cast<uint32_t>((strengthRatio - 1.f) * 100);
 			SendChatMessage("[Assist] The enemy team is " + std::to_string(strengthPctDiff) + "% stronger than your team!", pPlayer);
