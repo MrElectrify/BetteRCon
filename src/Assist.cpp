@@ -316,7 +316,7 @@ BEGINPLUGIN(Assist)
 			if (enemyScoreDifference > friendlyScoreDifference)
 				SendChatMessage("[Assist] Your team is coming back, but the enemy is still winning!", pPlayer);
 			else
-				SendChatMessage("[Assist] The enemy team is winning by over 10% and is still gaining!", pPlayer);
+				SendChatMessage("[Assist] The enemy team is winning and is still gaining!", pPlayer);
 			return;
 		}
 		else if (friendlyScoreDifference > enemyScoreDifference)
