@@ -96,6 +96,31 @@ namespace BetteRCon
 		// If the plugin is enabled, attempts to send a command to the server, and calls recvCallback when the response is received.
 		// RecvCallback_t must not block, as it is called from the worker thread
 		void SendCommand(const std::vector<std::string>& command, Server::RecvCallback_t&& recvCallback) { if (IsEnabled() == true) m_pServer->SendCommand(command, std::move(recvCallback)); }
+
+		// Gets server info such as name, teams
+		const Server::ServerInfo& GetServerInfo() const noexcept { return m_pServer->GetServerInfo(); }
+		// Gets server players
+		const Server::PlayerMap_t& GetPlayers() const noexcept { return m_pServer->GetPlayers(); }
+		// Gets team map
+		const Server::TeamMap_t& GetTeams() const noexcept { return m_pServer->GetTeams(); }
+		// Gets team squads
+		const Server::SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept { return m_pServer->GetSquadMap(teamId); }
+		// Gets squad players
+		const Server::PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept { return m_pServer->GetSquadPlayers(teamId, squadId); }
+
+		// Sends a chat message to everybody, of max 128 characters
+		void SendChatMessage(const std::string& message) { SendCommand({ "admin.say", message, "all" }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		// Sends a chat message to a player, of max 128 characters
+		void SendChatMessage(const std::string& message, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.say", message, "player", pPlayer->name }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		// Sends a chat message to a squad, of max 128 characters
+		void SendChatMessage(const std::string& message, const uint8_t teamId, const uint8_t squadId) { SendCommand({ "admin.say", message, "squad", std::to_string(teamId), std::to_string(squadId) }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		// Sends a chat message to a team, of max 128 characters
+		void SendChatMessage(const std::string& message, const uint8_t teamId) { SendCommand({ "admin.say", message, "team", std::to_string(teamId) }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		// Sends a chat message to a set of players, of max 128 characters
+		void SendChatMessage(const std::string& message, const std::vector<std::shared_ptr<Server::PlayerInfo>>& players) { for (const auto& pPlayer : players) { SendChatMessage(message, pPlayer); } }
+
+		// Force moves a player
+		void ForceMovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
 	private:
 		bool m_enabled = false;
 

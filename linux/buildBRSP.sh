@@ -1,2 +1,2 @@
 [ ! -d "plugins/" ] && mkdir plugins
-g++ --std=c++17 -fPIC -I../include -I../dependencies/asio/asio/include -Llib ../src/BetteRConSamplePlugin.cpp -Wl,-Bstatic -lBetteRConFramework -Wl,-Bdynamic -lpthread -ldl -lstdc++fs -shared -oplugins/BetteRConSampkePlugin.plugin
+g++ --std=c++17 -fPIC -I../include -I../dependencies/asio/asio/include ../src/BetteRConSamplePlugin.cpp -lpthread -ldl -lstdc++fs -shared -oplugins/BetteRConSampkePlugin.plugin

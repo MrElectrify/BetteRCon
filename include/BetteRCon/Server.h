@@ -101,6 +101,7 @@ namespace BetteRCon
 		using ErrorCode_t = Connection_t::ErrorCode_t;
 		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
 		using EventCallback_t = std::function<void(const std::vector<std::string>& eventArgs)>;
+		using FinishedLoadingPluginsCallback_t = std::function<void()>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
 		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
@@ -125,7 +126,7 @@ namespace BetteRCon
 		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. 
 		// Calls disconnectCallback when the server disconnects, pluginCallback when a plugin (un)loads or fails to load, 
 		// eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
-		void Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
+		void Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
 
 		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
 		void Disconnect();
@@ -136,25 +137,29 @@ namespace BetteRCon
 		bool IsConnected() const noexcept;
 
 		// Gets server info
-		const ServerInfo& GetServerInfo() const noexcept;
+		virtual const ServerInfo& GetServerInfo() const noexcept;
 		// Gets server players
-		const PlayerMap_t& GetPlayers() const noexcept;
+		virtual const PlayerMap_t& GetPlayers() const noexcept;
 		// Gets team map
-		const TeamMap_t& GetTeams() const noexcept;
+		virtual const TeamMap_t& GetTeams() const noexcept;
 		// Gets team squads
-		const SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept;
+		virtual const SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept;
 		// Gets squad players
-		const PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept;
+		virtual const PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept;
 
 		// Gets the last error code, which will tell why the server disconnected if it did
 		ErrorCode_t GetLastErrorCode() const noexcept;
 
 		// Attempts to send a command to the server, and calls recvCallback when the response is received.
 		// RecvCallback_t must not block, as it is called from the worker thread
-		void SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback);
+		virtual void SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback);
 
-		// Registers a callback that will be called any time an event is received
+		// Registers a callback that will be called any time an event is received, before any plugin event callbacks are called. Alias to RegisterPrePluginCallback
 		void RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback);
+		// Registers a callback that will be called any time an event is received, before any plugin event callbacks are called
+		void RegisterPrePluginCallback(const std::string& eventName, EventCallback_t&& eventCallback);
+		// Registers a callback that will be called any time an event is received, after any plugin event callbacks are called
+		void RegisterPostPluginCallback(const std::string& eventName, EventCallback_t&& eventCallback);
 
 		// Enables a plugin by name. Returns true on success
 		bool EnablePlugin(const std::string& pluginName);
@@ -163,23 +168,30 @@ namespace BetteRCon
 		bool DisablePlugin(const std::string& pluginName);
 
 		// Schedules an action to be executed in the future
-		void ScheduleAction(TimedAction_t&& timedAction, const std::chrono::system_clock::duration& timeFromNow);
+		virtual void ScheduleAction(TimedAction_t&& timedAction, const std::chrono::system_clock::duration& timeFromNow);
 		// Schedules an action to be executed in the future
-		void ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow);
+		virtual void ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow);
 
 		~Server();
 	private:
+		void ClearContainers();
+
 		void SendResponse(const std::vector<std::string>& response, const int32_t sequence);
 
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
+
+		void FireEvent(const std::vector<std::string>& eventArgs);
 		
+		void HandlePlayerInfo(const std::vector<std::string>& playerInfo);
+
 		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
 		void HandleOnKill(const std::vector<std::string>& eventArgs);
+		void HandleOnRoundEnd(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
 
 		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
@@ -189,6 +201,11 @@ namespace BetteRCon
 		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
 
 		void LoadPlugins();
+		void InitializeServer();
+
+		bool m_gotServerInfo;
+		bool m_gotServerPlayers;
+		bool m_initializedServer;
 
 		static int32_t s_lastSequence;
 
@@ -196,7 +213,8 @@ namespace BetteRCon
 		Connection_t m_connection;
 		std::thread m_thread;
 
-		std::unordered_multimap<std::string, EventCallback_t> m_eventCallbacks;
+		std::unordered_multimap<std::string, EventCallback_t> m_prePluginEventCallbacks;
+		std::unordered_multimap<std::string, EventCallback_t> m_postPluginEventCallbacks;
 
 		// server info
 		ServerInfo m_serverInfo;
@@ -208,6 +226,7 @@ namespace BetteRCon
 		// callbacks
 		DisconnectCallback_t m_disconnectCallback;
 		EventCallback_t m_eventCallback;
+		FinishedLoadingPluginsCallback_t m_finishedLoadingPluginsCallback;
 		PluginCallback_t m_pluginCallback;
 		ServerInfoCallback_t m_serverInfoCallback;
 		PlayerInfoCallback_t m_playerInfoCallback;

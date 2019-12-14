@@ -26,7 +26,9 @@ const std::string Server::s_LoginResultStr[] = { "OK", "Password was not set by 
 int32_t Server::s_lastSequence = 0;
 
 Server::Server() 
-	: m_connection(m_worker, 
+	: m_gotServerInfo(false), m_gotServerPlayers(false),
+	m_initializedServer(false),
+	m_connection(m_worker, 
 		std::bind(&Server::HandleEvent, this, 
 			std::placeholders::_1, std::placeholders::_2)),
 	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker), 
@@ -69,7 +71,7 @@ void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
 	}
 }
 
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
@@ -79,29 +81,10 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	// store the callbacks
 	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
+	m_finishedLoadingPluginsCallback = std::move(finishedLoadingPluginsCallback);
 	m_pluginCallback = std::move(pluginCallback);
 	m_serverInfoCallback = std::move(serverInfoCallback);
 	m_playerInfoCallback = std::move(playerInfoCallback);
-
-	// register the event callbacks
-	RegisterCallback("player.onAuthenticated",
-		std::bind(&Server::HandleOnAuthenticated,
-			this, std::placeholders::_1));
-	RegisterCallback("player.onLeave",
-		std::bind(&Server::HandleOnLeave,
-			this, std::placeholders::_1));
-	RegisterCallback("player.onTeamChange",
-		std::bind(&Server::HandleOnTeamChange,
-			this, std::placeholders::_1));
-	RegisterCallback("player.onSquadChange",
-		std::bind(&Server::HandleOnSquadChange,
-			this, std::placeholders::_1));
-	RegisterCallback("player.onKill",
-		std::bind(&Server::HandleOnKill,
-			this, std::placeholders::_1));
-	RegisterCallback("punkBuster.onMessage",
-		std::bind(&Server::HandlePunkbusterMessage,
-			this, std::placeholders::_1));
 }
 
 void Server::Disconnect()
@@ -110,24 +93,10 @@ void Server::Disconnect()
 
 	ErrorCode_t ec;
 
+	ClearContainers();
+
 	// kill timers
 	m_serverInfoTimer.cancel(ec);
-
-	// disable plugins
-	for (const auto& plugin : m_plugins)
-	{
-		// make a copy, because the string_view's pointer is no longer valid once we free the library
-		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
-
-		plugin.second.pPlugin->Disable();
-		plugin.second.pDestructor(plugin.second.pPlugin);
-
-		// free the module
-		BFreeLibrary(plugin.second.hPluginModule);
-
-		// call the unload callback
-		m_pluginCallback(pluginName.data(), false, true, "");
-	}
 
 	if (ec)
 		throw ec;
@@ -204,32 +173,21 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 	});
 }
 
-Server::~Server()
-{
-	ErrorCode_t ec;
-
-	// disconnect
-	if (IsConnected() == true)
-		Disconnect(ec);
-
-	// wait for the thread
-	if (m_thread.joinable() == true)
-		m_thread.join();
-}
-
-void Server::SendResponse(const std::vector<std::string>& response, const int32_t sequence)
-{
-	// create our packet
-	Packet_t packet(response, sequence, true);
-
-	// send the packet
-	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
-}
-
 void Server::RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback)
 {
+	RegisterPrePluginCallback(eventName, std::move(eventCallback));
+}
+
+void Server::RegisterPrePluginCallback(const std::string& eventName, EventCallback_t&& eventCallback)
+{
 	// add the event callback to the list of callbacks for the event name
-	m_eventCallbacks.emplace(eventName, std::move(eventCallback));
+	m_prePluginEventCallbacks.emplace(eventName, std::move(eventCallback));
+}
+
+void Server::RegisterPostPluginCallback(const std::string& eventName, EventCallback_t&& eventCallback)
+{
+	// add the event callback to the list of callbacks for the event name
+	m_postPluginEventCallbacks.emplace(eventName, std::move(eventCallback));
 }
 
 bool Server::EnablePlugin(const std::string& pluginName)
@@ -240,7 +198,7 @@ bool Server::EnablePlugin(const std::string& pluginName)
 		return false;
 
 	pluginIt->second.pPlugin->Enable();
-	
+
 	return true;
 }
 
@@ -263,7 +221,7 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const std::chrono::syst
 	pTimer->expires_from_now(timeFromNow);
 
 	pTimer->async_wait(
-		[timedAction = std::move(timedAction), pTimer] (const ErrorCode_t& ec)
+		[timedAction = std::move(timedAction), pTimer](const ErrorCode_t& ec)
 	{
 		if (!ec)
 			timedAction();
@@ -275,31 +233,82 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecon
 	ScheduleAction(std::move(timedAction), std::chrono::milliseconds(millisecondsFromNow));
 }
 
+Server::~Server()
+{
+	ErrorCode_t ec;
+
+	// disconnect
+	if (IsConnected() == true)
+		Disconnect(ec);
+
+	// wait for the thread
+	if (m_thread.joinable() == true)
+		m_thread.join();
+}
+
+void Server::ClearContainers()
+{
+	// reset serverInfo status
+	m_gotServerInfo = false;
+	m_gotServerPlayers = false;
+
+	// disable plugins
+	for (const auto& plugin : m_plugins)
+	{
+		// make a copy, because the string_view's pointer is no longer valid once we free the library
+		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
+
+		plugin.second.pPlugin->Disable();
+		plugin.second.pDestructor(plugin.second.pPlugin);
+
+		// free the module
+		BFreeLibrary(plugin.second.hPluginModule);
+
+		// call the unload callback
+		m_pluginCallback(pluginName.data(), false, true, "");
+	}
+
+	// clear the players and handlers
+	m_prePluginEventCallbacks.clear();
+	m_postPluginEventCallbacks.clear();
+	m_players.clear();
+	m_teams.clear();
+}
+
+void Server::SendResponse(const std::vector<std::string>& response, const int32_t sequence)
+{
+	// create our packet
+	Packet_t packet(response, sequence, true);
+
+	// send the packet
+	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
+}
+
 void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
 	{
-		// clear the players and handlers
-		m_eventCallbacks.clear();
-		m_players.clear();
-		m_teams.clear();
+		ClearContainers();
 		return m_disconnectCallback(ec);
 	}
 
 	if (event == nullptr)
 	{
-		// clear the players and handlers
-		m_eventCallbacks.clear();
-		m_players.clear();
-		m_teams.clear();
+		ClearContainers();
 		return m_disconnectCallback(ec);
 	}
 
-	// call each event handler
-	auto eventRange = m_eventCallbacks.equal_range(event->GetWords().front());
+	auto callHandlers = [&event = std::as_const(event)](const std::unordered_multimap<std::string, EventCallback_t>& eventHandlerMap)
+	{
+		// call each event handler
+		auto eventRange = eventHandlerMap.equal_range(event->GetWords().front());
 
-	for (auto it = eventRange.first; it != eventRange.second; ++it)
-		it->second(event->GetWords());
+		for (auto it = eventRange.first; it != eventRange.second; ++it)
+			it->second(event->GetWords());
+	};
+
+	// call prePlugin handlers before plugin handlers are called
+	callHandlers(m_prePluginEventCallbacks);
 
 	// call each plugin's event handler
 	for (const auto& plugin : m_plugins)
@@ -316,6 +325,9 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 		if (handlerIt != handlers.end())
 			handlerIt->second(event->GetWords());
 	}
+
+	// call postPlugin handlers after plugin handlers are called
+	callHandlers(m_postPluginEventCallbacks);
 
 	// call the main event handler
 	m_eventCallback(event->GetWords());
@@ -386,9 +398,6 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 			&Server::HandlePlayerListTimerExpire,
 			this, std::placeholders::_1));
 
-		// load the plugins
-		LoadPlugins();
-
 		// call the login callback
 		return loginCallback(LoginResult_OK);
 	}
@@ -402,6 +411,81 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 		// something strange happened
 		return loginCallback(LoginResult_Unknown);
 	}
+}
+
+void Server::FireEvent(const std::vector<std::string>& eventArgs)
+{
+	HandleEvent(ErrorCode_t{}, std::make_shared<Packet_t>(eventArgs, 0));
+}
+
+void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
+{
+	if (playerInfo.at(1) != "10")
+	{
+		// the server is not ok, disconnect
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	/// TODO: Make this whole section work independently of variable count per player
+	// process each player
+	constexpr size_t offset = 13;
+	constexpr size_t numVar = 10;
+	size_t playerCount = std::stoi(playerInfo.at(12));
+
+	// set that none of the players were yet seen this check
+	for (auto& playerPair : m_players)
+		playerPair.second->seenThisCheck = false;
+
+	for (size_t i = 0; i < playerCount; ++i)
+	{
+		std::string playerName = playerInfo.at(offset + numVar * i);
+		std::shared_ptr<PlayerInfo> pPlayer;
+
+		auto playerIt = m_players.find(playerName);
+		if (playerIt == m_players.end())
+		{
+			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
+			pPlayer->firstSeen = std::chrono::system_clock::now();
+		}
+		else
+			pPlayer = playerIt->second;
+
+		pPlayer->name = playerName;
+		pPlayer->GUID = playerInfo.at(offset + numVar * i + 1);
+		pPlayer->teamId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 2)));
+		pPlayer->squadId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 3)));
+		pPlayer->kills = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 4)));
+		pPlayer->deaths = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 5)));
+		pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
+		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
+		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
+		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+		pPlayer->seenThisCheck = true;
+
+		// add the player to their squad
+		AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
+	}
+
+	for (auto playerIt = m_players.begin(); playerIt != m_players.end(); ++playerIt)
+	{
+		// if we didn't see them in the list, remove them
+		if (playerIt->second->seenThisCheck == false)
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
+
+			// delete the player
+			RemovePlayerFromSquad(playerIt->second, playerIt->second->teamId, playerIt->second->squadId);
+			m_players.erase(playerIt);
+		}
+	}
+
+	// fire a playerInfo event
+	FireEvent({ "bettercon.playerInfo" });
+
+	// call the playerInfo callback
+	m_playerInfoCallback(m_players, m_teams);
 }
 
 void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
@@ -502,6 +586,11 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 
 	// increment killer's kills
 	++killerIt->second->kills;
+}
+
+void Server::HandleOnRoundEnd(const std::vector<std::string>& eventArgs)
+{
+	HandlePlayerInfo(eventArgs);
 }
 
 void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
@@ -704,6 +793,36 @@ void Server::LoadPlugins()
 		// call the callback
 		m_pluginCallback(pPlugin->GetPluginName().data(), true, true, "");
 	}
+
+	m_finishedLoadingPluginsCallback();
+}
+
+void Server::InitializeServer()
+{
+	// register the event callbacks
+	RegisterPrePluginCallback("player.onAuthenticated",
+		std::bind(&Server::HandleOnAuthenticated,
+			this, std::placeholders::_1));
+	RegisterPostPluginCallback("player.onLeave",
+		std::bind(&Server::HandleOnLeave,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onTeamChange",
+		std::bind(&Server::HandleOnTeamChange,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onSquadChange",
+		std::bind(&Server::HandleOnSquadChange,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onKill",
+		std::bind(&Server::HandleOnKill,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("server.onRoundOverPlayers",
+		std::bind(&Server::HandleOnRoundEnd,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("punkBuster.onMessage",
+		std::bind(&Server::HandlePunkbusterMessage,
+			this, std::placeholders::_1));
+
+	LoadPlugins();
 }
 
 void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::string>& serverInfo)
@@ -743,9 +862,14 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		// parse scores
 		size_t offset = 0;
 		auto numTeams = static_cast<size_t>(stoi(serverInfo.at(8)));
+
+		// make sure there is space for the team scores
+		if (m_serverInfo.m_scores.m_teamScores.size() != numTeams)
+			m_serverInfo.m_scores.m_teamScores.resize(numTeams);
+
 		for (; offset < numTeams; ++offset)
 		{
-			m_serverInfo.m_scores.m_teamScores.push_back(stoi(serverInfo.at(9 + offset)));
+			m_serverInfo.m_scores.m_teamScores[offset] = stoi(serverInfo.at(9 + offset));
 		}
 		--offset;
 
@@ -775,8 +899,19 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
+	// fire a serverInfo event
+	FireEvent({ "bettercon.serverInfo" });
+
 	// call the serverInfo callback
 	m_serverInfoCallback(m_serverInfo);
+
+	m_gotServerInfo = true;
+	if (m_initializedServer == false &&
+		m_gotServerPlayers == true)
+	{
+		InitializeServer();
+		m_initializedServer = true;
+	}
 
 	// reset the timer and wait again
 	m_serverInfoTimer.expires_from_now(std::chrono::seconds(30));
@@ -811,9 +946,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 			this, std::placeholders::_1));
 	}
 
-	/// TODO: Make this whole section work independently of variable count per player
-	if (playerInfo.at(0) != "OK" ||
-		playerInfo.at(1) != "10")
+	if (playerInfo.at(0) != "OK")
 	{
 		// the server is not ok, disconnect
 		ErrorCode_t ec;
@@ -821,57 +954,15 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
-	// process each player
-	constexpr size_t offset = 13;
-	constexpr size_t numVar = 10;
-	size_t playerCount = std::stoi(playerInfo.at(12));
+	HandlePlayerInfo(playerInfo);
 
-	// set that none of the players were yet seen this check
-	for (auto& playerPair : m_players)
-		playerPair.second->seenThisCheck = false;
-
-	for (size_t i = 0; i < playerCount; ++i)
+	m_gotServerPlayers = true;
+	if (m_initializedServer == false &&
+		m_gotServerInfo == true)
 	{
-		std::string playerName = playerInfo.at(offset + numVar * i);
-		std::shared_ptr<PlayerInfo> pPlayer;
-
-		auto playerIt = m_players.find(playerName);
-		if (playerIt == m_players.end())
-			pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
-		else
-			pPlayer = playerIt->second;
-
-		pPlayer->name = playerName;
-		pPlayer->GUID = playerInfo.at(offset + numVar * i + 1);
-		pPlayer->teamId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 2)));
-		pPlayer->squadId = static_cast<uint8_t>(std::stoi(playerInfo.at(offset + numVar * i + 3)));
-		pPlayer->kills = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 4)));
-		pPlayer->deaths = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 5)));
-		pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
-		pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
-		pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
-		pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
-		pPlayer->seenThisCheck = true;
-
-		// add the player to their squad
-		AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
+		InitializeServer();
+		m_initializedServer = true;
 	}
-
-	for (auto playerIt = m_players.begin(); playerIt != m_players.end(); ++playerIt)
-	{
-		// if we didn't see them in the list, remove them
-		if (playerIt->second->seenThisCheck == false)
-		{
-			BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerIt->second->name << " has disappeared\n";
-
-			// delete the player
-			RemovePlayerFromSquad(playerIt->second, playerIt->second->teamId, playerIt->second->squadId);
-			m_players.erase(playerIt);
-		}
-	}
-
-	// call the playerInfo callback
-	m_playerInfoCallback(m_players, m_teams);
 
 	// reset the timer and wait again
 	m_playerInfoTimer.expires_from_now(std::chrono::seconds(30));
