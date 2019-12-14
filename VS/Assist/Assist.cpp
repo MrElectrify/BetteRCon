@@ -283,7 +283,7 @@ BEGINPLUGIN(Assist)
 		}
 
 		// see if it has been long enough
-		constexpr std::chrono::minutes timeBeforeAssist(0);
+		constexpr std::chrono::minutes timeBeforeAssist(4);
 
 		auto timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)
@@ -349,7 +349,7 @@ BEGINPLUGIN(Assist)
 
 			const auto& playerStrengthEntry = playerStrengthIt->second;
 
-			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 2);
+			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -447,7 +447,7 @@ BEGINPLUGIN(Assist)
 
 			const auto& playerStrengthEntry = playerStrengthIt->second;
 
-			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 2);
+			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -509,7 +509,7 @@ BEGINPLUGIN(Assist)
 
 			const auto& playerStrengthEntry = playerStrengthIt->second;
 
-			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 2);
+			const auto playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
