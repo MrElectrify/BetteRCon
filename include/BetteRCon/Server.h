@@ -181,6 +181,8 @@ namespace BetteRCon
 		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
+
+		void FireEvent(const std::vector<std::string>& eventArgs);
 		
 		void HandlePlayerInfo(const std::vector<std::string>& playerInfo);
 

@@ -413,6 +413,11 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 	}
 }
 
+void Server::FireEvent(const std::vector<std::string>& eventArgs)
+{
+	HandleEvent(ErrorCode_t{}, std::make_shared<Packet_t>(eventArgs, 0));
+}
+
 void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 {
 	if (playerInfo.at(1) != "10")
@@ -475,6 +480,9 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			m_players.erase(playerIt);
 		}
 	}
+
+	// fire a playerInfo event
+	FireEvent({ "bettercon.playerInfo" });
 
 	// call the playerInfo callback
 	m_playerInfoCallback(m_players, m_teams);
@@ -891,21 +899,8 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		return;
 	}
 
-	// call each plugin's serverInfo handler
-	for (const auto& plugin : m_plugins)
-	{
-		// make sure the plugin is enabled
-		if (plugin.second.pPlugin->IsEnabled() == false)
-			continue;
-
-		const auto& handlers = plugin.second.pPlugin->GetEventHandlers();
-
-		// call their handler
-		auto handlerIt = handlers.find("bettercon.serverInfo");
-
-		if (handlerIt != handlers.end())
-			handlerIt->second({ "bettercon.serverInfo" });
-	}
+	// fire a serverInfo event
+	FireEvent({ "bettercon.serverInfo" });
 
 	// call the serverInfo callback
 	m_serverInfoCallback(m_serverInfo);
