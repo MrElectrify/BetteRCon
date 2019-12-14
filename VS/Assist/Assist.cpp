@@ -101,7 +101,7 @@ BEGINPLUGIN(Assist)
 	void ReadPlayerDatabase()
 	{
 		// try to open the database
-		std::ifstream inFile("plugins/Assist.db");
+		std::ifstream inFile("plugins/Assist.db", std::ios::binary);
 		if (inFile.good() == false)
 			return;
 
@@ -150,19 +150,18 @@ BEGINPLUGIN(Assist)
 			dbData.push_back(entry.first.size() & 0xff);
 			
 			// copy their name
-			for (const auto c : entry.first)
-				dbData.push_back(c);
+			dbData.resize(dbData.size() + entry.first.size());
+			memcpy(&dbData[dbData.size() - entry.first.size()], entry.first.c_str(), entry.first.size());
 
 			// make space for their data
-			for (size_t i = 0; i < sizeof(PlayerStrengthEntry); ++i)
-				dbData.push_back('\0');
+			dbData.resize(dbData.size() + sizeof(PlayerStrengthEntry));
 
 			// copy their data
 			memcpy(&dbData[dbData.size() - sizeof(PlayerStrengthEntry)], &entry.second, sizeof(PlayerStrengthEntry));
 		}
 
 		// try to open the output database
-		std::ofstream outFile("plugins/Assist.db");
+		std::ofstream outFile("plugins/Assist.db", std::ios::binary);
 
 		// write the file
 		outFile.write(dbData.data(), dbData.size());
@@ -231,12 +230,12 @@ BEGINPLUGIN(Assist)
 		const auto& playerName = eventArgs.at(1);
 		const auto& chatMessage = eventArgs.at(2);
 
-		// they didn't send us an assist request
-		if (chatMessage.find("!assist") == std::string::npos)
-			return;
-
 		// they sent more than just the assist request
 		if (chatMessage.size() > 8)
+			return;
+
+		// they didn't send us an assist request
+		if (chatMessage.find("!assist") == std::string::npos)
 			return;
 
 		/// TODO: logic!
@@ -317,6 +316,8 @@ BEGINPLUGIN(Assist)
 		const auto& pPlayer = playerIt->second;
 
 		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry);
+	
+		WritePlayerDatabase();
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventArgs)
