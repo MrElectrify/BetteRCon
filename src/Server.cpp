@@ -840,9 +840,14 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		// parse scores
 		size_t offset = 0;
 		auto numTeams = static_cast<size_t>(stoi(serverInfo.at(8)));
+
+		// make sure there is space for the team scores
+		if (m_serverInfo.m_scores.m_teamScores.size() != numTeams)
+			m_serverInfo.m_scores.m_teamScores.resize(numTeams);
+
 		for (; offset < numTeams; ++offset)
 		{
-			m_serverInfo.m_scores.m_teamScores.push_back(stoi(serverInfo.at(9 + offset)));
+			m_serverInfo.m_scores.m_teamScores[offset] = stoi(serverInfo.at(9 + offset));
 		}
 		--offset;
 
