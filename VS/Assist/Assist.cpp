@@ -53,7 +53,7 @@ BEGINPLUGIN(Assist)
 			return;
 		}
 
-		m_inRound = true;
+		m_inRound = serverInfo.m_scores.m_teamScores.size() > 0;
 		for (const auto teamTickets : serverInfo.m_scores.m_teamScores)
 		{
 			if (teamTickets <= 0.f)
