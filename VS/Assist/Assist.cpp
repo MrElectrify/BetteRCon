@@ -34,6 +34,19 @@ BEGINPLUGIN(Assist)
 	{
 		Plugin::Enable();
 
+		// check serverInfo to see if we are in endscreen
+		const auto& serverInfo = GetServerInfo();
+
+		m_inRound = true;
+		for (const auto teamTickets : serverInfo.m_scores.m_teamScores)
+		{
+			if (teamTickets <= 0.f)
+			{
+				m_inRound = false;
+				continue;
+			}
+		}
+
 		// in case we are starting mid-round
 		m_levelStart = std::chrono::system_clock::now();
 
@@ -98,7 +111,7 @@ BEGINPLUGIN(Assist)
 			for (const auto c : entry.first)
 				dbData.push_back(c);
 
-			// copy their data
+			// make space for their data
 			for (size_t i = 0; i < sizeof(decltype(entry.second)); ++i)
 				dbData.push_back('\0');
 
