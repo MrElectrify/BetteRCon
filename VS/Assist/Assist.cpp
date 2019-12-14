@@ -164,7 +164,7 @@ BEGINPLUGIN(Assist)
 
 	void CalculatePlayerStrength(const BetteRCon::Server::ServerInfo& serverInfo, const size_t numTeams, const std::shared_ptr<BetteRCon::Server::PlayerInfo>& pPlayer,
 		const std::vector<float>& playerStrengths, const std::vector<float>& playerKDTotals, const std::vector<float>& playerScoreTotals, const std::vector<uint32_t>& teamSizes,
-		PlayerStrengthEntry& playerStrengthEntry)
+		PlayerStrengthEntry& playerStrengthEntry, bool roundEnd)
 	{
 		float enemyStrength = 0.f;
 		for (size_t i = 0; i < numTeams; ++i)
@@ -181,7 +181,7 @@ BEGINPLUGIN(Assist)
 		const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
 
 		const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? ((std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart)) : 1.f;
-		const auto roundTime = levelAttendance * ((maxScore - minScore) / maxScore);
+		const auto roundTime = levelAttendance * ((roundEnd == true) ? 1.f : ((maxScore - minScore) / maxScore));
 		const auto strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
 		// friendly stats for comparison
@@ -194,19 +194,19 @@ BEGINPLUGIN(Assist)
 		const auto roundRelativeKDR = (friendlyAvgKDR != 0.f) ? ((pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f) / friendlyAvgKDR : 1.f;
 		const auto weightedRoundRelativeKDR = roundRelativeKDR * totalTime * strengthMultiplier;
 
-		playerStrengthEntry.relativeKDR = (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime;
+		playerStrengthEntry.relativeKDR = (totalTime != 0.f) ? (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime : 0.f;
 
 		const auto weightedTotalRelativeScore = playerStrengthEntry.relativeScore * playerStrengthEntry.roundSamples;
 		const auto roundRelativeScore = (friendlyAvgScore != 0.f) ? pPlayer->score / friendlyAvgScore : 1.f;
 		const auto weightedRoundRelativeScore = roundRelativeScore * totalTime * strengthMultiplier;
 
-		playerStrengthEntry.relativeScore = (weightedTotalRelativeScore + weightedRoundRelativeScore) / totalTime;
+		playerStrengthEntry.relativeScore = (totalTime != 0.f) ? (weightedTotalRelativeScore + weightedRoundRelativeScore) / totalTime : 0.f;
 
 		const auto weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
 		const auto roundWinLossRatio = 0.f;
 		const auto weightedRoundWinLossRatio = roundWinLossRatio * strengthMultiplier;
 
-		playerStrengthEntry.winLossRatio = (weightedTotalWL + weightedRoundWinLossRatio) / totalTime;
+		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
 
 		playerStrengthEntry.roundSamples += roundTime;
 	}
@@ -293,7 +293,7 @@ BEGINPLUGIN(Assist)
 		auto& playerStrengthEntry = playerStrengthIt->second;
 		const auto& pPlayer = playerIt->second;
 
-		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerScoreTotals, teamSizes, playerStrengthEntry);
+		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerScoreTotals, teamSizes, playerStrengthEntry, false);
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventArgs)
@@ -359,7 +359,7 @@ BEGINPLUGIN(Assist)
 
 			auto& playerStrengthEntry = playerStrengthIt->second;
 
-			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerScoreTotals, teamSizes, playerStrengthEntry);
+			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerScoreTotals, teamSizes, playerStrengthEntry, true);
 		}
 
 		// write the database
