@@ -273,7 +273,6 @@ void Server::ClearContainers()
 {
 	// clear the players and handlers
 	m_eventCallbacks.clear();
-	m_pluginEventCallbacks.clear();
 	m_players.clear();
 	m_teams.clear();
 }
