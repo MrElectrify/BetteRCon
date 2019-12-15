@@ -1,10 +1,19 @@
 #include <BetteRCon/Plugin.h>
 
+// STL
 #include <iostream>
 
+#ifdef _WIN32
+// Windows stuff
+#include <Windows.h>
+#endif
+
 // Sample Plugin Definition
-BEGINPLUGIN(SamplePlugin)
-	CREATEPLUGIN(SamplePlugin)
+class SamplePlugin : public BetteRCon::Plugin
+{
+public:
+	SamplePlugin(BetteRCon::Server* pServer)
+		: Plugin(pServer)
 	{
 		// register the join handler that will be called every time player.onJoin is fired
 		RegisterHandler("player.onJoin", std::bind(&SamplePlugin::HandleJoin, this, std::placeholders::_1));
@@ -13,8 +22,8 @@ BEGINPLUGIN(SamplePlugin)
 		ScheduleAction([] { std::cout << "[Sample Plugin]: It has been 1000 milliseconds since creation\n"; }, 1000);
 
 		// retrieve the server's name
-		SendCommand({ "vars.serverName" }, 
-			[](const BetteRCon::Server::ErrorCode_t& ec, const std::vector<std::string>& words) 
+		SendCommand({ "vars.serverName" },
+			[](const BetteRCon::Server::ErrorCode_t& ec, const std::vector<std::string>& words)
 		{
 			if (ec)
 			{
@@ -32,9 +41,9 @@ BEGINPLUGIN(SamplePlugin)
 		});
 	}
 
-	AUTHORPLUGIN("MrElectrify")
-	NAMEPLUGIN("Sample Plugin")
-	VERSIONPLUGIN("v1.0.0")
+	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
+	virtual std::string_view GetPluginName() const { return "Sample Plugin"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.0.1"; }
 
 	virtual void Enable()
 	{
@@ -52,4 +61,23 @@ BEGINPLUGIN(SamplePlugin)
 	{
 		BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Player " << eventWords.at(1) << " joined\n";
 	}
-ENDPLUGIN(SamplePlugin)
+
+	virtual ~SamplePlugin() {}
+};
+
+PLUGIN_EXPORT SamplePlugin* CreatePlugin(BetteRCon::Server* pServer)
+{
+	return new SamplePlugin(pServer);
+}
+
+PLUGIN_EXPORT void DestroyPlugin(SamplePlugin* pPlugin)
+{
+	delete pPlugin;
+}
+
+#ifdef _WIN32
+BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReserved, LPVOID lpReserved)
+{
+	return TRUE;
+}
+#endif

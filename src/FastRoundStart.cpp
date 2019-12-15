@@ -1,8 +1,16 @@
 #include <BetteRCon/Plugin.h>
 
+#ifdef _WIN32
+// Windows stuff
+#include <Windows.h>
+#endif
+
 // Fast Round Start start the next round 30 seconds after the end of the last round
-BEGINPLUGIN(FastRoundStart)
-	CREATEPLUGIN(FastRoundStart)
+class FastRoundStart : public BetteRCon::Plugin
+{
+public:
+	FastRoundStart(BetteRCon::Server* pServer)
+		: Plugin(pServer)
 	{
 		// every time server.onRoudOver fires, start a timer for 30 seconds later that will start the next round
 		RegisterHandler("server.onRoundOver", std::bind(&FastRoundStart::HandleRoundOver, this, std::placeholders::_1));
@@ -11,9 +19,9 @@ BEGINPLUGIN(FastRoundStart)
 		RegisterHandler("server.onLevelLoaded", std::bind(&FastRoundStart::HandleLevelLoaded, this, std::placeholders::_1));
 	}
 
-	AUTHORPLUGIN("MrElectrify")
-	NAMEPLUGIN("FastRoundStart")
-	VERSIONPLUGIN("v1.0.0")
+	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
+	virtual std::string_view GetPluginName() const { return "FastRoundStart"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.0.1"; }
 
 	virtual void Enable()
 	{
@@ -73,5 +81,24 @@ BEGINPLUGIN(FastRoundStart)
 		m_cancelNextLevel = true;
 	}
 
+	virtual ~FastRoundStart() {}
+private:
 	bool m_cancelNextLevel;
-ENDPLUGIN(FastRoundStart)
+};
+
+PLUGIN_EXPORT FastRoundStart* CreatePlugin(BetteRCon::Server* pServer)
+{
+	return new FastRoundStart(pServer);
+}
+
+PLUGIN_EXPORT void DestroyPlugin(FastRoundStart* pPlugin)
+{
+	delete pPlugin;
+}
+
+#ifdef _WIN32
+BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReserved, LPVOID lpReserved)
+{
+	return TRUE;
+}
+#endif
