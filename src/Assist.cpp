@@ -230,19 +230,19 @@ public:
 
 		const float weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
 		const float roundRelativeKDR = (friendlyAvgKDR != 0.f) ? ((pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f) / friendlyAvgKDR : 1.f;
-		const float weightedRoundRelativeKDR = roundRelativeKDR * totalTime * strengthMultiplier;
+		const float weightedRoundRelativeKDR = roundRelativeKDR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeKDR = (totalTime != 0.f) ? (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime : 0.f;
 
 		const float weightedTotalRelativeKPR = playerStrengthEntry.relativeKPR * playerStrengthEntry.roundSamples;
 		const float roundRelativeKPR = (friendlyAvgKPR != 0.f) ? ((pPlayer->kills / roundTime) / friendlyAvgKPR) : 1.f;
-		const float weightedRoundRelativeKPR = roundRelativeKPR * totalTime * strengthMultiplier;
+		const float weightedRoundRelativeKPR = roundRelativeKPR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeKPR = (totalTime != 0.f) ? (weightedTotalRelativeKPR + weightedRoundRelativeKPR) / totalTime : 0.f;
 
 		const float weightedTotalRelativeSPR = playerStrengthEntry.relativeSPR * playerStrengthEntry.roundSamples;
 		const float roundRelativeSPR = (friendlyAvgSPR != 0.f) ? pPlayer->score / friendlyAvgSPR : 1.f;
-		const float weightedRoundRelativeSPR = roundRelativeSPR * totalTime * strengthMultiplier;
+		const float weightedRoundRelativeSPR = roundRelativeSPR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeSPR = (totalTime != 0.f) ? (weightedTotalRelativeSPR + weightedRoundRelativeSPR) / totalTime : 0.f;
 
