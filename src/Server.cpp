@@ -545,10 +545,10 @@ void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
 {
 	// onLeave means they left the game. Remove them from the list of players
-	if (eventArgs.size() != 2)
+	if (eventArgs.size() < 2)
 	{
 		// the server is not ok, disconnect
-		BetteRCon::Internal::g_stdErrLog << "OnLeave did not have 2 members: " << eventArgs.size() << '\n';
+		BetteRCon::Internal::g_stdErrLog << "OnLeave did not have at least members: " << eventArgs.size() << '\n';
 		ErrorCode_t ec;
 		Disconnect(ec);
 		return;

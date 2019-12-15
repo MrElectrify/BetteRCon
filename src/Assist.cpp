@@ -305,7 +305,7 @@ public:
 		std::chrono::seconds timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)
 		{
-			SendChatMessage("[Assist] " + std::to_string(timeLeft.count()) + " seconds left before players are allowed to use assist!", pPlayer);
+			SendChatMessage("[Assist] " + std::to_string(timeLeft.count()) + " seconds left before players are allowed to use assist (3 minutes after round start)!", pPlayer);
 			return;
 		}
 
@@ -611,10 +611,10 @@ public:
 
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
-			// make sure their team has space
+			// make sure the enemy team has space
 			uint32_t teamSize = 0;
 			for (const PlayerMap_t::value_type& player : players)
-				teamSize += (player.second->teamId == pPlayer->teamId);
+				teamSize += (player.second->teamId != pPlayer->teamId);
 
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
