@@ -462,7 +462,7 @@ BEGINPLUGIN(Assist)
 		// see how they did and update their entry
 		auto playerStrengthIt = m_playerStrengthDatabase.find(playerName);
 		if (playerStrengthIt == m_playerStrengthDatabase.end())
-			playerStrengthIt = m_playerStrengthDatabase.emplace(playerName, PlayerStrengthEntry{}).first;
+			playerStrengthIt = m_playerStrengthDatabase.emplace(playerName, PlayerStrengthEntry{0}).first;
 
 		auto& playerStrengthEntry = playerStrengthIt->second;
 		const auto& pPlayer = playerIt->second;
@@ -536,7 +536,7 @@ BEGINPLUGIN(Assist)
 			// see if they are already in the database
 			auto playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
 			if (playerStrengthIt == m_playerStrengthDatabase.end())
-				playerStrengthIt = m_playerStrengthDatabase.emplace(pPlayer->name, PlayerStrengthEntry{}).first;
+				playerStrengthIt = m_playerStrengthDatabase.emplace(pPlayer->name, PlayerStrengthEntry{0}).first;
 
 			auto& playerStrengthEntry = playerStrengthIt->second;
 
