@@ -59,7 +59,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "Assist"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.0.1"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.0.2"; }
 
 	virtual void Enable()
 	{
@@ -247,10 +247,9 @@ public:
 		playerStrengthEntry.relativeSPR = (totalTime != 0.f) ? (weightedTotalRelativeSPR + weightedRoundRelativeSPR) / totalTime : 0.f;
 
 		const float weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
-		const float roundWinLossRatio = 1.f * win;
-		const float weightedRoundWinLossRatio = roundWinLossRatio;
+		const float roundWinLossRatio = (1.f * win) / totalTime;
 
-		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
+		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + roundWinLossRatio) / totalTime : 0.f;
 
 		playerStrengthEntry.roundSamples += roundTime;
 	}
