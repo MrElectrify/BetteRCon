@@ -17,37 +17,6 @@
 #define PLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
-#define BEGINPLUGIN(name) class name : public BetteRCon::Plugin			\
-{																		\
-public:
-#define ENDPLUGINIMPL(name) virtual ~name() {}							\
-};																		\
-PLUGIN_EXPORT name* CreatePlugin(BetteRCon::Server* pServer)			\
-{																		\
-	return new name(pServer);											\
-}																		\
-PLUGIN_EXPORT void DestroyPlugin(name* pPlugin)							\
-{																		\
-	delete pPlugin;														\
-}
-
-#ifdef _WIN32
-#include <Windows.h>
-#define ENDPLUGIN(name) ENDPLUGINIMPL(name)								\
-BOOL WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)	\
-{																		\
-	return TRUE;														\
-}
-#elif __linux__
-#define ENDPLUGIN(name) ENDPLUGINIMPL(name)
-#endif
-
-#define CREATEPLUGIN(name) name(BetteRCon::Server* pServer) : Plugin(pServer)
-
-#define AUTHORPLUGIN(authorName) virtual std::string_view GetPluginAuthor() { return authorName; }
-#define NAMEPLUGIN(name) virtual std::string_view GetPluginName() { return name; }
-#define VERSIONPLUGIN(version) virtual std::string_view GetPluginVersion() { return version; }
-
 // STL
 #include <functional>
 #include <memory>
@@ -70,11 +39,11 @@ namespace BetteRCon
 		Plugin(Server* pServer) : m_pServer(pServer) {}
 
 		// Returns the name of the plugin's author
-		virtual std::string_view GetPluginAuthor() = 0;
+		virtual std::string_view GetPluginAuthor() const = 0;
 		// Returns the name of the plugin
-		virtual std::string_view GetPluginName() = 0;
+		virtual std::string_view GetPluginName() const = 0;
 		// Returns the version of the plugin
-		virtual std::string_view GetPluginVersion() = 0;
+		virtual std::string_view GetPluginVersion() const = 0;
 
 		// Enables a plugin. BetteRCon will start calling handlers from this point
 		virtual void Enable() { m_enabled = true; }
