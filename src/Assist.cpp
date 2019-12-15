@@ -204,7 +204,7 @@ BEGINPLUGIN(Assist)
 		const auto timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
 
 		const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? timeSinceFirstSeen / timeSinceLevelStart : 1.f;
-		const auto roundTime = levelAttendance * ((roundEnd == true) ? 1.f : ((maxScore - minScore) / maxScore));
+		const auto roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : ((maxScore - minScore) / maxScore)) : 1.f);
 		const auto strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
 		// friendly stats for comparison
