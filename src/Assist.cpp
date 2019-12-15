@@ -198,7 +198,7 @@ BEGINPLUGIN(Assist)
 
 		// multipliers
 		const auto minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
-		const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
+		const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * ((m_gameModeCounter != 0) ? m_gameModeCounter : 1.f);
 
 		const auto timeSinceFirstSeen = std::chrono::system_clock::now() - pPlayer->firstSeen;
 		const auto timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
