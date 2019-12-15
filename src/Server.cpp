@@ -257,8 +257,9 @@ void Server::ClearContainers()
 	{
 		// make a copy, because the string_view's pointer is no longer valid once we free the library
 		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
-
-		plugin.second.pPlugin->Disable();
+		
+		if (plugin.second.pPlugin->IsEnabled() == true)
+			plugin.second.pPlugin->Disable();
 		plugin.second.pDestructor(plugin.second.pPlugin);
 
 		// free the module
