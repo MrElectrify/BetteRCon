@@ -247,7 +247,7 @@ public:
 		playerStrengthEntry.relativeSPR = (totalTime != 0.f) ? (weightedTotalRelativeSPR + weightedRoundRelativeSPR) / totalTime : 0.f;
 
 		const float weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
-		const float roundWinLossRatio = (1.f * win) / totalTime;
+		const float roundWinLossRatio = (1.f * win) / roundTime;
 
 		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + roundWinLossRatio) / totalTime : 0.f;
 
