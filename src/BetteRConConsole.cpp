@@ -142,5 +142,7 @@ int main(int argc, char* argv[])
 		g_conVar.wait(lock, [] { return g_disconnected == true; });
 	}
 
+	BetteRCon::Internal::g_stdOutLog << "Main thread complete\n";
+
 	return 0;
 }

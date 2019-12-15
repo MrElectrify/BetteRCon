@@ -289,6 +289,7 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 {
 	if (ec)
 	{
+		BetteRCon::Internal::g_stdErrLog << "ErrorCode on HandleEvent: " << ec.message() << '\n';
 		ClearContainers();
 		return m_disconnectCallback(ec);
 	}
