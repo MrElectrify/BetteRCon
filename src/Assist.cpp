@@ -248,7 +248,7 @@ public:
 
 		const float weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
 		const float roundWinLossRatio = 1.f * win;
-		const float weightedRoundWinLossRatio = roundWinLossRatio * strengthMultiplier;
+		const float weightedRoundWinLossRatio = roundWinLossRatio;
 
 		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
 
