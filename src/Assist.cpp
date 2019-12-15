@@ -200,7 +200,10 @@ BEGINPLUGIN(Assist)
 		const auto minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
 		const auto maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
 
-		const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? ((std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart)) : 1.f;
+		const auto timeSinceFirstSeen = std::chrono::system_clock::now() - pPlayer->firstSeen;
+		const auto timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
+
+		const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? timeSinceFirstSeen / timeSinceLevelStart : 1.f;
 		const auto roundTime = levelAttendance * ((roundEnd == true) ? 1.f : ((maxScore - minScore) / maxScore));
 		const auto strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
@@ -356,8 +359,8 @@ BEGINPLUGIN(Assist)
 		}
 
 		// see if the enemy team is at least 20% stronger than they are
-		const auto friendlyStrength = playerStrengths[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
-		const auto enemyStrength = playerStrengths[pPlayer->teamId % 2] / teamSizes[pPlayer->teamId % 2];
+		const auto friendlyStrength = (teamSizes[pPlayer->teamId - 1] != 0) ? playerStrengths[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1] : 0.f;
+		const auto enemyStrength = (teamSizes[pPlayer->teamId % 2] != 0) ? playerStrengths[pPlayer->teamId % 2] / teamSizes[pPlayer->teamId % 2] : 0.f;
 		
 		const auto strengthRatio = enemyStrength / friendlyStrength;
 
@@ -431,12 +434,15 @@ BEGINPLUGIN(Assist)
 			if (pPlayer->teamId == 0)
 				continue;
 
-			const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? ((std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart)) : 1.f;
-			const auto roundTime = levelAttendance * ((maxScore - minScore) / maxScore);
+			const auto timeSinceFirstSeen = std::chrono::system_clock::now() - pPlayer->firstSeen;
+			const auto timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
+
+			const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? timeSinceFirstSeen / timeSinceLevelStart : 1.f;
+			const auto roundTime = (maxScore != 0) ? levelAttendance * ((maxScore - minScore) / maxScore) : 1.f;
 
 			// add team telemetry
 			++teamSizes[pPlayer->teamId - 1];
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths > 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
 			playerKPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->kills / roundTime : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->score / roundTime : 0.f;
 
@@ -494,11 +500,14 @@ BEGINPLUGIN(Assist)
 			if (pPlayer->teamId == 0)
 				continue;
 
-			const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? ((std::chrono::system_clock::now() - pPlayer->firstSeen) / (std::chrono::system_clock::now() - m_levelStart)) : 1.f;
+			const auto timeSinceFirstSeen = std::chrono::system_clock::now() - pPlayer->firstSeen;
+			const auto timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
+
+			const auto levelAttendance = (pPlayer->firstSeen > m_levelStart) ? timeSinceFirstSeen / timeSinceLevelStart : 1.f;
 
 			// add team telemetry
 			++teamSizes[pPlayer->teamId - 1];
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths > 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
 			playerKPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->kills / levelAttendance : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->score / levelAttendance : 0.f;
 
@@ -570,8 +579,9 @@ BEGINPLUGIN(Assist)
 
 		const auto& serverInfo = GetServerInfo();
 		const auto& players = GetPlayers();
-		
-		const auto maxTeamSize = serverInfo.m_maxPlayerCount / serverInfo.m_scores.m_teamScores.size();
+		const auto& teamScores = serverInfo.m_scores.m_teamScores;
+
+		const auto maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
 
 		while (m_moveQueue.size() > 0)
 		{
