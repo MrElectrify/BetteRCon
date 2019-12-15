@@ -252,11 +252,6 @@ public:
 
 		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
 
-		if (isnan(playerStrengthEntry.relativeKDR) == true ||
-			isnan(playerStrengthEntry.relativeKPR) == true ||
-			isnan(playerStrengthEntry.relativeSPR) == true)
-			__debugbreak();
-
 		playerStrengthEntry.roundSamples += roundTime;
 	}
 
@@ -305,7 +300,7 @@ public:
 		}
 
 		// see if it has been long enough
-		constexpr std::chrono::minutes timeBeforeAssist(0);
+		constexpr std::chrono::minutes timeBeforeAssist(3);
 
 		std::chrono::seconds timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)
