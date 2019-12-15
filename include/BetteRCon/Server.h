@@ -95,12 +95,24 @@ namespace BetteRCon
 			bool seenThisCheck = false;
 			std::chrono::system_clock::time_point firstSeen;
 		};
+	private:
+		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
+		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
+
+		struct PluginInfo
+		{
+			HMOD hPluginModule;
+			Plugin* pPlugin;
+			PluginDestructor_t pDestructor;
+		};
+	public:
 
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
-		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
 		using EventCallback_t = std::function<void(const std::vector<std::string>& eventArgs)>;
+		using EventCallbackMap_t = std::unordered_multimap<std::string, EventCallback_t>;
+		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
 		using FinishedLoadingPluginsCallback_t = std::function<void()>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
@@ -111,6 +123,7 @@ namespace BetteRCon
 		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
+		using PluginMap_t = std::unordered_map<std::string, PluginInfo>;
 		using RecvCallback_t = std::function<void(const ErrorCode_t& ec, const std::vector<std::string>& response)>;
 		using ServerInfoCallback_t = std::function<void(const ServerInfo& info)>;
 		using TimedAction_t = std::function<void()>;
@@ -197,9 +210,6 @@ namespace BetteRCon
 		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
 		void RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
 
-		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
-		using PluginFactory_t = std::add_pointer_t<Plugin*(Server*)>;
-
 		void LoadPlugins();
 		void InitializeServer();
 
@@ -213,8 +223,8 @@ namespace BetteRCon
 		Connection_t m_connection;
 		std::thread m_thread;
 
-		std::unordered_multimap<std::string, EventCallback_t> m_prePluginEventCallbacks;
-		std::unordered_multimap<std::string, EventCallback_t> m_postPluginEventCallbacks;
+		EventCallbackMap_t m_prePluginEventCallbacks;
+		EventCallbackMap_t m_postPluginEventCallbacks;
 
 		// server info
 		ServerInfo m_serverInfo;
@@ -232,13 +242,7 @@ namespace BetteRCon
 		PlayerInfoCallback_t m_playerInfoCallback;
 		
 		// plugins
-		struct PluginInfo
-		{
-			HMOD hPluginModule;
-			Plugin* pPlugin;
-			PluginDestructor_t pDestructor;
-		};
-		std::unordered_map<std::string, PluginInfo> m_plugins;
+		PluginMap_t m_plugins;
 
 		// player info
 		// we store as shared_ptrs with redundancy because we want fast accessing of teams and squads, as well as easy traversal of all players
