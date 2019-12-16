@@ -106,7 +106,6 @@ namespace BetteRCon
 			PluginDestructor_t pDestructor;
 		};
 	public:
-
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
