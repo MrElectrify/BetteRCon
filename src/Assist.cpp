@@ -260,6 +260,46 @@ public:
 		playerStrengthEntry.roundSamples += roundTime;
 	}
 
+	void ProcessQueue()
+	{
+		const ServerInfo& serverInfo = GetServerInfo();
+		const PlayerMap_t& players = GetPlayers();
+		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
+
+		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
+
+		while (m_moveQueue.size() > 0)
+		{
+			const std::string& firstPlayer = m_moveQueue.front();
+
+			// find the player in our player list
+			const PlayerMap_t::const_iterator playerIt = players.find(firstPlayer);
+			if (playerIt == players.end())
+			{
+				m_moveQueue.pop();
+				continue;
+			}
+
+			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
+
+			// make sure the enemy team has space
+			uint32_t teamSize = 0;
+			for (const PlayerMap_t::value_type& player : players)
+				teamSize += (player.second->teamId != pPlayer->teamId);
+
+			if (teamSize >= maxTeamSize)
+				// there is not enough space. wait until the next time around
+				break;
+
+			// we are good to switch them. let's do it
+			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
+
+			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
+
+			m_moveQueue.pop();
+		}
+	}
+
 	void HandlePlayerChat(const std::vector<std::string>& eventArgs)
 	{
 		const std::string& playerName = eventArgs.at(1);
@@ -430,6 +470,9 @@ public:
 		m_moveQueue.push(playerName);
 		m_lastPlayerAssists.emplace(playerName, std::chrono::system_clock::now());
 		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
+
+		// try to process the queue now
+		ProcessQueue();
 	}
 
 	void HandlePlayerLeave(const std::vector<std::string>& eventArgs)
@@ -633,39 +676,7 @@ public:
 		if (m_inRound == false)
 			return;
 
-		const ServerInfo& serverInfo = GetServerInfo();
-		const PlayerMap_t& players = GetPlayers();
-		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
-
-		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
-
-		while (m_moveQueue.size() > 0)
-		{
-			const std::string& firstPlayer = m_moveQueue.front();
-
-			// find the player in our player list
-			const PlayerMap_t::const_iterator playerIt = players.find(firstPlayer);
-			if (playerIt == players.end())
-			{
-				m_moveQueue.pop();
-				continue;
-			}
-
-			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
-
-			// make sure the enemy team has space
-			uint32_t teamSize = 0;
-			for (const PlayerMap_t::value_type& player : players)
-				teamSize += (player.second->teamId != pPlayer->teamId);
-
-			if (teamSize >= maxTeamSize)
-				// there is not enough space. wait until the next time around
-				break;
-
-			// we are good to switch them. let's do it
-			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
-			m_moveQueue.pop();
-		}
+		ProcessQueue();
 	}
 
 	virtual ~Assist() {}
