@@ -24,6 +24,7 @@ public:
 		float relativeKPR;
 		float relativeSPR;
 		float winLossRatio;
+		int assists;
 	};
 
 	using PlayerInfo = BetteRCon::Server::PlayerInfo;
@@ -62,7 +63,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "Assist"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.0.3"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.1.0"; }
 
 	virtual void Enable()
 	{
@@ -259,6 +260,46 @@ public:
 		playerStrengthEntry.roundSamples += roundTime;
 	}
 
+	void ProcessQueue()
+	{
+		const ServerInfo& serverInfo = GetServerInfo();
+		const PlayerMap_t& players = GetPlayers();
+		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
+
+		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
+
+		while (m_moveQueue.size() > 0)
+		{
+			const std::string& firstPlayer = m_moveQueue.front();
+
+			// find the player in our player list
+			const PlayerMap_t::const_iterator playerIt = players.find(firstPlayer);
+			if (playerIt == players.end())
+			{
+				m_moveQueue.pop();
+				continue;
+			}
+
+			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
+
+			// make sure the enemy team has space
+			uint32_t teamSize = 0;
+			for (const PlayerMap_t::value_type& player : players)
+				teamSize += (player.second->teamId != pPlayer->teamId);
+
+			if (teamSize >= maxTeamSize)
+				// there is not enough space. wait until the next time around
+				break;
+
+			// we are good to switch them. let's do it
+			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
+
+			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
+
+			m_moveQueue.pop();
+		}
+	}
+
 	void HandlePlayerChat(const std::vector<std::string>& eventArgs)
 	{
 		const std::string& playerName = eventArgs.at(1);
@@ -380,7 +421,7 @@ public:
 		const float friendlyStrength = (teamSizes[pPlayer->teamId - 1] != 0) ? playerStrengths[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1] : 0.f;
 		const float enemyStrength = (teamSizes[pPlayer->teamId % 2] != 0) ? playerStrengths[pPlayer->teamId % 2] / teamSizes[pPlayer->teamId % 2] : 0.f;
 
-		const float strengthRatio = enemyStrength / friendlyStrength;
+		const float strengthRatio = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
 		if (strengthRatio > 1.5f)
 		{
@@ -402,10 +443,36 @@ public:
 			}
 		}
 
+		// see if they would be too powerful
+		const PlayerStrengthMap_t::iterator playerStrengthIt = m_playerStrengthDatabase.find(playerName);
+		if (playerStrengthIt != m_playerStrengthDatabase.end())
+		{
+			PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
+
+			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float adjustedEnemyStrength = enemyStrength + playerStrength;
+			const float adjustedFriendlyStrength = friendlyStrength - playerStrength;
+
+			const float adjustedStrengthRatio = (adjustedFriendlyStrength != 0.f) ? adjustedEnemyStrength / adjustedFriendlyStrength : 1.f;
+
+			if (adjustedStrengthRatio > 1.75f)
+			{
+				const uint32_t strengthPctDiff = static_cast<uint32_t>((adjustedStrengthRatio - 1.f) * 100);
+				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%)!\n", pPlayer);
+				return;
+			}
+
+			// add a successful assist
+			++playerStrengthEntry.assists;
+		}
+
 		// they are good. add them to the move queue
 		m_moveQueue.push(playerName);
 		m_lastPlayerAssists.emplace(playerName, std::chrono::system_clock::now());
 		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
+
+		// try to process the queue now
+		ProcessQueue();
 	}
 
 	void HandlePlayerLeave(const std::vector<std::string>& eventArgs)
@@ -486,6 +553,9 @@ public:
 		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
 		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry);
+
+		// try to process the queue, maybe a spot just opened up on the other team
+		ProcessQueue();
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventArgs)
@@ -609,39 +679,7 @@ public:
 		if (m_inRound == false)
 			return;
 
-		const ServerInfo& serverInfo = GetServerInfo();
-		const PlayerMap_t& players = GetPlayers();
-		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
-
-		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
-
-		while (m_moveQueue.size() > 0)
-		{
-			const std::string& firstPlayer = m_moveQueue.front();
-
-			// find the player in our player list
-			const PlayerMap_t::const_iterator playerIt = players.find(firstPlayer);
-			if (playerIt == players.end())
-			{
-				m_moveQueue.pop();
-				continue;
-			}
-
-			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
-
-			// make sure the enemy team has space
-			uint32_t teamSize = 0;
-			for (const PlayerMap_t::value_type& player : players)
-				teamSize += (player.second->teamId != pPlayer->teamId);
-
-			if (teamSize >= maxTeamSize)
-				// there is not enough space. wait until the next time around
-				break;
-
-			// we are good to switch them. let's do it
-			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
-			m_moveQueue.pop();
-		}
+		ProcessQueue();
 	}
 
 	virtual ~Assist() {}
