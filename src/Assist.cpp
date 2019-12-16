@@ -553,6 +553,9 @@ public:
 		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
 		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry);
+
+		// try to process the queue, maybe a spot just opened up on the other team
+		ProcessQueue();
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventArgs)
