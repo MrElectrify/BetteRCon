@@ -232,7 +232,8 @@ public:
 		const float totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
 		const float weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
-		const float roundRelativeKDR = (friendlyAvgKDR != 0.f) ? ((pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f) / friendlyAvgKDR : 1.f;
+		const float roundKD = pPlayer->kills / ((pPlayer->deaths != 0) ? pPlayer->deaths : 0);
+		const float roundRelativeKDR = (friendlyAvgKDR != 0.f) ? roundKD / friendlyAvgKDR : 1.f;
 		const float weightedRoundRelativeKDR = roundRelativeKDR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeKDR = (totalTime != 0.f) ? (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime : 0.f;
