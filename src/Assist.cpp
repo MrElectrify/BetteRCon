@@ -47,8 +47,11 @@ public:
 		// store the current round time
 		RegisterHandler("server.onLevelLoaded", std::bind(&Assist::HandleLevelLoaded, this, std::placeholders::_1));
 
-		// also listen for round end to store player information in our flatfile database
-		RegisterHandler("server.onRoundOverPlayers", std::bind(&Assist::HandleRoundOver, this, std::placeholders::_1));
+		// listen for round end to store the winning team
+		RegisterHandler("server.onRoundOver", std::bind(&Assist::HandleRoundOver, this, std::placeholders::_1));
+
+		// also listen for round end players to store player information in our flatfile database
+		RegisterHandler("server.onRoundOverPlayers", std::bind(&Assist::HandleRoundOverPlayers, this, std::placeholders::_1));
 
 		// listen for serverInfo so we can calculate the ticket deficit
 		RegisterHandler("bettercon.serverInfo", std::bind(&Assist::HandleServerInfo, this, std::placeholders::_1));
@@ -59,7 +62,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "Assist"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.0.2"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.0.3"; }
 
 	virtual void Enable()
 	{
@@ -230,26 +233,27 @@ public:
 
 		const float weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
 		const float roundRelativeKDR = (friendlyAvgKDR != 0.f) ? ((pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f) / friendlyAvgKDR : 1.f;
-		const float weightedRoundRelativeKDR = roundRelativeKDR * totalTime * strengthMultiplier;
+		const float weightedRoundRelativeKDR = roundRelativeKDR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeKDR = (totalTime != 0.f) ? (weightedTotalRelativeKDR + weightedRoundRelativeKDR) / totalTime : 0.f;
 
 		const float weightedTotalRelativeKPR = playerStrengthEntry.relativeKPR * playerStrengthEntry.roundSamples;
 		const float roundRelativeKPR = (friendlyAvgKPR != 0.f) ? ((pPlayer->kills / roundTime) / friendlyAvgKPR) : 1.f;
-		const float weightedRoundRelativeKPR = roundRelativeKPR * totalTime * strengthMultiplier;
+		const float weightedRoundRelativeKPR = roundRelativeKPR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeKPR = (totalTime != 0.f) ? (weightedTotalRelativeKPR + weightedRoundRelativeKPR) / totalTime : 0.f;
 
 		const float weightedTotalRelativeSPR = playerStrengthEntry.relativeSPR * playerStrengthEntry.roundSamples;
 		const float roundRelativeSPR = (friendlyAvgSPR != 0.f) ? pPlayer->score / friendlyAvgSPR : 1.f;
-		const float weightedRoundRelativeSPR = roundRelativeSPR * totalTime * strengthMultiplier;
+		const float weightedRoundRelativeSPR = roundRelativeSPR * roundTime * strengthMultiplier;
 
 		playerStrengthEntry.relativeSPR = (totalTime != 0.f) ? (weightedTotalRelativeSPR + weightedRoundRelativeSPR) / totalTime : 0.f;
 
 		const float weightedTotalWL = playerStrengthEntry.winLossRatio * playerStrengthEntry.roundSamples;
-		const float roundWinLossRatio = (1.f * win) / roundTime;
+		const float roundWinLossRatio = 1.f * win;
+		const float weightedRoundWinLossRatio = roundWinLossRatio * roundTime;
 
-		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + roundWinLossRatio) / totalTime : 0.f;
+		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
 
 		playerStrengthEntry.roundSamples += roundTime;
 	}
@@ -491,6 +495,18 @@ public:
 
 	void HandleRoundOver(const std::vector<std::string>& eventArgs)
 	{
+		if (eventArgs.size() != 2)
+		{
+			// there was a strange error. just ignore the message
+			BetteRCon::Internal::g_stdOutLog << "[Assist] Received Malformed RoundOver\n";
+			return;
+		}
+
+		m_lastWinningTeam = static_cast<uint8_t>(std::stoi(eventArgs[1]));
+	}
+
+	void HandleRoundOverPlayers(const std::vector<std::string>& eventArgs)
+	{
 		m_inRound = false;
 
 		const ServerInfo& serverInfo = GetServerInfo();
@@ -553,7 +569,9 @@ public:
 
 			PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry, true, pPlayer->teamId);
+			const bool playerWon = pPlayer->teamId == m_lastWinningTeam;
+
+			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry, true, playerWon);
 		}
 
 		// write the database
@@ -631,6 +649,7 @@ private:
 	std::vector<int32_t> m_lastScores;
 	std::vector<int32_t> m_lastScoreDiffs;
 	std::chrono::system_clock::time_point m_lastScoreCalculation;
+	uint8_t m_lastWinningTeam;
 
 	// round stuff
 	bool m_isNotOfficial = true;
