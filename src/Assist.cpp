@@ -63,7 +63,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "Assist"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.0.3"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.1.0"; }
 
 	virtual void Enable()
 	{
