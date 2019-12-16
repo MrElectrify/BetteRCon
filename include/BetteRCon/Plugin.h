@@ -70,12 +70,12 @@ namespace BetteRCon
 		const Server::ServerInfo& GetServerInfo() const noexcept { return m_pServer->GetServerInfo(); }
 		// Gets server players
 		const Server::PlayerMap_t& GetPlayers() const noexcept { return m_pServer->GetPlayers(); }
-		// Gets team map
+		// Gets all of the teams
 		const Server::TeamMap_t& GetTeams() const noexcept { return m_pServer->GetTeams(); }
-		// Gets team squads
-		const Server::SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept { return m_pServer->GetSquadMap(teamId); }
-		// Gets squad players
-		const Server::PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept { return m_pServer->GetSquadPlayers(teamId, squadId); }
+		// Gets a team
+		const Server::Team& GetTeam(const uint8_t teamId) const noexcept { return m_pServer->GetTeam(teamId); }
+		// Gets a squad
+		const Server::PlayerMap_t& GetSquad(const uint8_t teamId, const uint8_t squadId) const noexcept { return m_pServer->GetSquad(teamId, squadId); }
 
 		// Sends a chat message to everybody, of max 128 characters
 		void SendChatMessage(const std::string& message) { SendCommand({ "admin.say", message, "all" }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }

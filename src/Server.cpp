@@ -127,22 +127,22 @@ const Server::TeamMap_t& Server::GetTeams() const noexcept
 	return m_teams;
 }
 
-const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexcept
+const Server::Team& Server::GetTeam(const uint8_t teamId) const noexcept
 {
-	static const SquadMap_t emptyTeam;
+	static const Team emptyTeam;
 
 	const TeamMap_t::const_iterator teamIt = m_teams.find(teamId);
 	if (teamIt == m_teams.end())
 		return emptyTeam;
 
-	return teamIt->second.squads;
+	return teamIt->second;
 }
 
-const Server::PlayerMap_t& Server::GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept
+const Server::PlayerMap_t& Server::GetSquad(const uint8_t teamId, const uint8_t squadId) const noexcept
 {
 	static const PlayerMap_t emptySquad;
 
-	const SquadMap_t& squadMap = GetSquadMap(teamId);
+	const SquadMap_t& squadMap = GetTeam(teamId).squads;
 
 	const SquadMap_t::const_iterator squadIt = squadMap.find(squadId);
 	if (squadIt == squadMap.end())

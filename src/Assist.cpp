@@ -30,6 +30,8 @@ public:
 	using PlayerInfo = BetteRCon::Server::PlayerInfo;
 	using ServerInfo = BetteRCon::Server::ServerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
+	using SquadMap_t = BetteRCon::Server::SquadMap_t;
+	using Team_t = BetteRCon::Server::Team;
 	using PlayerAssistMap_t = std::unordered_map<std::string, std::chrono::system_clock::time_point>;
 	using PlayerStrengthMap_t = std::unordered_map<std::string, PlayerStrengthEntry>;
 
@@ -228,7 +230,7 @@ public:
 		const float roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : (static_cast<float>(maxScore - minScore) / maxScore)) : 1.f);
 		const float strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
-		const uint32_t friendlyTeamSize = GetTeams().at(friendlyTeam).playerCount;
+		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
 
 		// friendly stats for comparison
 		const float friendlyAvgKDR = (friendlyTeamSize > 0) ? playerKDTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
@@ -290,14 +292,31 @@ public:
 			const uint8_t newTeam = (pPlayer->teamId % 2) + 1;
 
 			// make sure the enemy team has space
-			uint32_t teamSize = GetTeams().at(newTeam).playerCount;
+			uint32_t teamSize = GetTeam(newTeam).playerCount;
 
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
 
+			// let's play nice and find them a random squad
+			uint8_t squadId = 0;
+
+			// find their team
+			const Team_t& currentTeam = GetTeam(pPlayer->teamId);
+			
+			constexpr size_t SQUAD_MAX = 5;
+
+			for (const SquadMap_t::value_type& squad : currentTeam.squads)
+			{
+				if (squad.second.size() < SQUAD_MAX)
+				{
+					squadId = squad.first;
+					break;
+				}
+			}
+
 			// we are good to switch them. let's do it
-			ForceMovePlayer(newTeam, 0, pPlayer);
+			ForceMovePlayer(newTeam, squadId, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
@@ -422,8 +441,8 @@ public:
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
 		}
 
-		const uint32_t enemyTeamSize = GetTeams().at(enemyTeam).playerCount;
-		const uint32_t friendlyTeamSize = GetTeams().at(friendlyTeam).playerCount;
+		const uint32_t enemyTeamSize = GetTeam(enemyTeam).playerCount;
+		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
 
 		// see if the enemy team is at least 20% stronger than they are
 		const float enemyStrength = (enemyTeamSize > 0) ? playerStrengths[enemyTeam - 1] / enemyTeamSize : 0.f;
