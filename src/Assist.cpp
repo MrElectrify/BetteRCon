@@ -208,11 +208,14 @@ public:
 
 	void CalculatePlayerStrength(const BetteRCon::Server::ServerInfo& serverInfo, const size_t numTeams, const std::shared_ptr<BetteRCon::Server::PlayerInfo>& pPlayer,
 		const std::vector<float>& playerStrengths, const std::vector<float>& playerKDTotals, const std::vector<float>& playerKPRTotals, const std::vector<float>& playerSPRTotals,
-		const std::vector<uint32_t>& teamSizes, PlayerStrengthEntry& playerStrengthEntry, bool roundEnd = false, bool win = false)
+		PlayerStrengthEntry& playerStrengthEntry, bool roundEnd = false, bool win = false)
 	{
+		const uint8_t enemyTeam = (pPlayer->teamId % 2) + 1;
+		const uint8_t friendlyTeam = pPlayer->teamId;
+
 		// teamIds start at 1, but our vector starts at 0. it is size 2
-		const float enemyStrength = playerStrengths[pPlayer->teamId % 2];
-		const float friendlyStrength = playerStrengths[pPlayer->teamId - 1];
+		const float enemyStrength = playerStrengths[enemyTeam - 1];
+		const float friendlyStrength = playerStrengths[friendlyTeam - 1];
 
 		// multipliers
 		const int32_t minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
@@ -225,10 +228,12 @@ public:
 		const float roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : (static_cast<float>(maxScore - minScore) / maxScore)) : 1.f);
 		const float strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
+		const uint32_t friendlyTeamSize = GetTeams().at(friendlyTeam).playerCount;
+
 		// friendly stats for comparison
-		const float friendlyAvgKDR = playerKDTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
-		const float friendlyAvgKPR = playerKPRTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
-		const float friendlyAvgSPR = playerSPRTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
+		const float friendlyAvgKDR = (friendlyTeamSize > 0) ? playerKDTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
+		const float friendlyAvgKPR = (friendlyTeamSize > 0) ? playerKPRTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
+		const float friendlyAvgSPR = (friendlyTeamSize > 0) ? playerSPRTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
 
 		const float totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
@@ -282,17 +287,17 @@ public:
 
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
+			const uint8_t newTeam = (pPlayer->teamId % 2) + 1;
+
 			// make sure the enemy team has space
-			uint32_t teamSize = 0;
-			for (const PlayerMap_t::value_type& player : players)
-				teamSize += (player.second->teamId != pPlayer->teamId);
+			uint32_t teamSize = GetTeams().at(newTeam).playerCount;
 
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
 
 			// we are good to switch them. let's do it
-			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
+			ForceMovePlayer(newTeam, 0, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
@@ -354,9 +359,12 @@ public:
 			return;
 		}
 
+		const uint8_t enemyTeam = (pPlayer->teamId % 2) + 1;
+		const uint8_t friendlyTeam = pPlayer->teamId;
+
 		// see if their team is winning
-		const int32_t enemyScore = m_lastScores[pPlayer->teamId % 2];
-		const int32_t friendlyScore = m_lastScores[pPlayer->teamId - 1];
+		const int32_t enemyScore = m_lastScores[enemyTeam];
+		const int32_t friendlyScore = m_lastScores[friendlyTeam];
 
 		const ServerInfo& serverInfo = GetServerInfo();
 		const int32_t maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
@@ -369,8 +377,8 @@ public:
 			return;
 		}
 
-		const int32_t enemyScoreDifference = m_lastScoreDiffs[pPlayer->teamId % 2];
-		const int32_t friendlyScoreDifference = m_lastScoreDiffs[pPlayer->teamId - 1];
+		const int32_t enemyScoreDifference = m_lastScoreDiffs[enemyTeam];
+		const int32_t friendlyScoreDifference = m_lastScoreDiffs[friendlyTeam];
 
 		if (enemyScore > friendlyScore)
 		{
@@ -388,10 +396,9 @@ public:
 			return;
 		}
 
-		const size_t numTeams = serverInfo.m_scores.m_teamScores.size();
+		const size_t numTeams = GetTeams().size();
 
 		std::vector<float> playerStrengths(numTeams);
-		std::vector<uint32_t> teamSizes(numTeams);
 
 		// first find the total strength for each team
 		for (const PlayerMap_t::value_type& player : players)
@@ -401,8 +408,6 @@ public:
 			// make sure they are on a playing team
 			if (pPlayer->teamId == 0)
 				continue;
-
-			++teamSizes[pPlayer->teamId - 1];
 
 			// see if they are already in the database
 			const PlayerStrengthMap_t::const_iterator playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
@@ -417,9 +422,12 @@ public:
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
 		}
 
+		const uint32_t enemyTeamSize = GetTeams().at(enemyTeam).playerCount;
+		const uint32_t friendlyTeamSize = GetTeams().at(friendlyTeam).playerCount;
+
 		// see if the enemy team is at least 20% stronger than they are
-		const float friendlyStrength = (teamSizes[pPlayer->teamId - 1] != 0) ? playerStrengths[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1] : 0.f;
-		const float enemyStrength = (teamSizes[pPlayer->teamId % 2] != 0) ? playerStrengths[pPlayer->teamId % 2] / teamSizes[pPlayer->teamId % 2] : 0.f;
+		const float enemyStrength = (enemyTeamSize > 0) ? playerStrengths[enemyTeam - 1] / enemyTeamSize : 0.f;
+		const float friendlyStrength = (friendlyTeamSize > 0) ? playerStrengths[friendlyTeam - 1] / friendlyTeamSize : 0.f;
 
 		const float strengthRatio = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
@@ -505,7 +513,6 @@ public:
 		std::vector<float> playerKDTotals(numTeams);
 		std::vector<float> playerKPRTotals(numTeams);
 		std::vector<float> playerSPRTotals(numTeams);
-		std::vector<uint32_t> teamSizes(numTeams);
 
 		const int32_t minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
 		const int32_t maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
@@ -526,7 +533,6 @@ public:
 			const float roundTime = (maxScore != 0) ? levelAttendance * ((maxScore - minScore) / maxScore) : 1.f;
 
 			// add team telemetry
-			++teamSizes[pPlayer->teamId - 1];
 			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
 			playerKPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->kills / roundTime : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->score / roundTime : 0.f;
@@ -552,7 +558,7 @@ public:
 		PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
-		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry);
+		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry);
 
 		// try to process the queue, maybe a spot just opened up on the other team
 		ProcessQueue();
@@ -589,7 +595,6 @@ public:
 		std::vector<float> playerKDTotals(numTeams);
 		std::vector<float> playerKPRTotals(numTeams);
 		std::vector<float> playerSPRTotals(numTeams);
-		std::vector<uint32_t> teamSizes(numTeams);
 
 		// first find the total strength for each team
 		for (const PlayerMap_t::value_type& player : players)
@@ -606,7 +611,6 @@ public:
 			const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
 
 			// add team telemetry
-			++teamSizes[pPlayer->teamId - 1];
 			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
 			playerKPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->kills / levelAttendance : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->score / levelAttendance : 0.f;
@@ -642,7 +646,7 @@ public:
 
 			const bool playerWon = pPlayer->teamId == m_lastWinningTeam;
 
-			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry, true, playerWon);
+			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry, true, playerWon);
 		}
 
 		// write the database
