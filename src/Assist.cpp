@@ -255,9 +255,6 @@ public:
 
 		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
 
-		if (playerStrengthEntry.winLossRatio > 1.f)
-			__debugbreak();
-
 		playerStrengthEntry.roundSamples += roundTime;
 	}
 
