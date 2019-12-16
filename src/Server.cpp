@@ -135,7 +135,7 @@ const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexce
 	if (teamIt == m_teams.end())
 		return emptyTeam;
 
-	return teamIt->second;
+	return teamIt->second.squads;
 }
 
 const Server::PlayerMap_t& Server::GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept
@@ -764,15 +764,18 @@ void Server::AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const 
 	// add them to the new team and squad
 	TeamMap_t::iterator teamIt = m_teams.find(teamId);
 	if (teamIt == m_teams.end())
-		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
+		teamIt = m_teams.emplace(teamId, Team{}).first;
 
-	SquadMap_t::iterator squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
-		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
+	SquadMap_t::iterator squadIt = teamIt->second.squads.find(squadId);
+	if (squadIt == teamIt->second.squads.end())
+		squadIt = teamIt->second.squads.emplace(squadId, PlayerMap_t()).first;
 
 	// change their squad and teamId
 	pPlayer->teamId = teamId;
 	pPlayer->squadId = squadId;
+
+	// increment the team playerCount
+	++teamIt->second.playerCount;
 
 	squadIt->second.emplace(pPlayer->name, pPlayer);
 }
@@ -787,8 +790,8 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 		return;
 	}
 
-	const SquadMap_t::iterator squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
+	const SquadMap_t::iterator squadIt = teamIt->second.squads.find(squadId);
+	if (squadIt == teamIt->second.squads.end())
 	{
 		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << pPlayer->name << " changed squads/teams but had an invalid squad\n";
 		return;
@@ -806,10 +809,13 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 
 	// erase the squad if they were alone in their squad
 	if (squadIt->second.empty() == true)
-		teamIt->second.erase(squadIt);
+		teamIt->second.squads.erase(squadIt);
+
+	// decrement the team's playercount
+	--teamIt->second.playerCount;
 
 	// erase the team if it is empty
-	if (teamIt->second.empty() == true)
+	if (teamIt->second.squads.empty() == true)
 		m_teams.erase(teamIt);
 }
 

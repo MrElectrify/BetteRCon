@@ -118,7 +118,12 @@ namespace BetteRCon
 		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
 		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
 		using SquadMap_t = std::unordered_map<uint8_t, PlayerMap_t>;
-		using TeamMap_t = std::unordered_map<uint8_t, SquadMap_t>;
+		struct Team
+		{
+			SquadMap_t squads;
+			uint32_t playerCount = 0;
+		};
+		using TeamMap_t = std::unordered_map<uint8_t, Team>;
 		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
