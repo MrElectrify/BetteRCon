@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="InGameAdmin.cpp">
+    <ClCompile Include="InGameCommands.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

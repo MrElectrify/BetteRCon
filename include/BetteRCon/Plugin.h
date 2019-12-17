@@ -46,9 +46,9 @@ namespace BetteRCon
 		virtual std::string_view GetPluginVersion() const = 0;
 
 		// Enables a plugin. BetteRCon will start calling handlers from this point
-		virtual void Enable() { m_enabled = true; }
+		virtual void Enable() { m_enabled = true; BetteRCon::Internal::g_stdOutLog << "[" << GetPluginName() << "]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n'; }
 		// Disables a plugin. BetteRCon will stop calling handlers from this point
-		virtual void Disable() { m_enabled = false; }
+		virtual void Disable() { m_enabled = false; BetteRCon::Internal::g_stdOutLog << "[" << GetPluginName() << "]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n'; }
 
 		// Retreives whether or not the plugin should be enabled
 		const bool IsEnabled() const { return m_enabled == true; }

@@ -76,18 +76,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
     <OutDir>..\bin\$(Configuration)\$(Platform)\</OutDir>
+    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
     <OutDir>..\bin\$(Configuration)\$(Platform)\</OutDir>
+    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
     <OutDir>..\bin\$(Configuration)\$(Platform)\</OutDir>
+    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
     <OutDir>..\bin\$(Configuration)\$(Platform)\</OutDir>
+    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Label="LLVM" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <UseLldLink>false</UseLldLink>

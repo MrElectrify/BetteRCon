@@ -23,18 +23,6 @@ public:
 	virtual std::string_view GetPluginName() const { return "FastRoundStart"; }
 	virtual std::string_view GetPluginVersion() const { return "v1.0.1"; }
 
-	virtual void Enable()
-	{
-		Plugin::Enable();
-		BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	}
-
-	virtual void Disable()
-	{
-		Plugin::Disable();
-		BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	}
-
 	void HandleRoundOver(const std::vector<std::string>& eventWords)
 	{
 		// unused
