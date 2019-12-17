@@ -481,7 +481,7 @@ public:
 			if (adjustedStrengthRatio > 1.75f)
 			{
 				const uint32_t strengthPctDiff = static_cast<uint32_t>((adjustedStrengthRatio - 1.f) * 100);
-				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%)!\n", pPlayer);
+				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%) (" + std::to_string(adjustedEnemyStrength) + ":" + std::to_string(adjustedFriendlyStrength) + ")!\n", pPlayer);
 				return;
 			}
 
