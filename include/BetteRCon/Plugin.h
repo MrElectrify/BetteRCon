@@ -82,13 +82,13 @@ namespace BetteRCon
 		const Server::PlayerMap_t& GetSquad(const uint8_t teamId, const uint8_t squadId) const noexcept { return m_pServer->GetSquad(teamId, squadId); }
 
 		// Sends a chat message to everybody, of max 128 characters
-		void SendChatMessage(const std::string& message) { SendCommand({ "admin.say", message, "all" }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		void SendChatMessage(const std::string& message) { SendCommand({ "admin.say", "[" + std::string(GetPluginName()) + "] " + message, "all" }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
 		// Sends a chat message to a player, of max 128 characters
-		void SendChatMessage(const std::string& message, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.say", message, "player", pPlayer->name }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		void SendChatMessage(const std::string& message, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.say", "[" + std::string(GetPluginName()) + "] " + message, "player", pPlayer->name }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
 		// Sends a chat message to a squad, of max 128 characters
-		void SendChatMessage(const std::string& message, const uint8_t teamId, const uint8_t squadId) { SendCommand({ "admin.say", message, "squad", std::to_string(teamId), std::to_string(squadId) }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		void SendChatMessage(const std::string& message, const uint8_t teamId, const uint8_t squadId) { SendCommand({ "admin.say", "[" + std::string(GetPluginName()) + "] " + message, "squad", std::to_string(teamId), std::to_string(squadId) }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
 		// Sends a chat message to a team, of max 128 characters
-		void SendChatMessage(const std::string& message, const uint8_t teamId) { SendCommand({ "admin.say", message, "team", std::to_string(teamId) }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		void SendChatMessage(const std::string& message, const uint8_t teamId) { SendCommand({ "admin.say", "[" + std::string(GetPluginName()) + "] " + message, "team", std::to_string(teamId) }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
 		// Sends a chat message to a set of players, of max 128 characters
 		void SendChatMessage(const std::string& message, const std::vector<std::shared_ptr<Server::PlayerInfo>>& players) { for (const auto& pPlayer : players) { SendChatMessage(message, pPlayer); } }
 

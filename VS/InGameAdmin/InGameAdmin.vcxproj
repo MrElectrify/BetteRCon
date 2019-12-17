@@ -19,14 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\InGameCommands.cpp" />
+    <ClCompile Include="..\..\src\InGameAdmin.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{59331883-F66F-45C3-B10A-709069ED8C5C}</ProjectGuid>
     <RootNamespace>InGameAdmin</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
-    <ProjectName>InGameCommands</ProjectName>
+    <ProjectName>InGameAdmin</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -124,7 +124,7 @@
       <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
 mkdir $(SolutionDir)BetteRConConsole\plugins
 )
-copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+copy /y $(SolutionDir)plugins\InGameAdmin.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -142,7 +142,7 @@ copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConso
       <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
 mkdir $(SolutionDir)BetteRConConsole\plugins
 )
-copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+copy /y $(SolutionDir)plugins\InGameAdmin.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -164,7 +164,7 @@ copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConso
       <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
 mkdir $(SolutionDir)BetteRConConsole\plugins
 )
-copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+copy /y $(SolutionDir)plugins\InGameAdmin.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -186,7 +186,7 @@ copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConso
       <Command>IF NOT EXIST $(SolutionDir)BetteRConConsole\plugins (
 mkdir $(SolutionDir)BetteRConConsole\plugins
 )
-copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
+copy /y $(SolutionDir)plugins\InGameAdmin.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

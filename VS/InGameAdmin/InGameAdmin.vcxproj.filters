@@ -2,17 +2,17 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{8cb14b92-b4cf-4956-adb0-f93cc1de724b}</UniqueIdentifier>
+      <UniqueIdentifier>{3dc2695b-218a-469d-832e-5f52a6d3fa98}</UniqueIdentifier>
     </Filter>
     <Filter Include="Resource Files">
-      <UniqueIdentifier>{a48c1efd-e997-4382-80b6-d2177afcda8b}</UniqueIdentifier>
+      <UniqueIdentifier>{c992a7b1-c90e-460f-995f-099aec61bd72}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{dd9aa561-2a61-4c13-83f5-92962af176e2}</UniqueIdentifier>
+      <UniqueIdentifier>{d6e79410-cfd4-49b1-8e19-b9939d27338e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\InGameCommands.cpp">
+    <ClCompile Include="..\..\src\InGameAdmin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

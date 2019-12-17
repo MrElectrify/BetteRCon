@@ -13,7 +13,7 @@
 #endif
 
 // A set of in-game commands including admin commands.
-class InGameCommands : public BetteRCon::Plugin
+class InGameAdmin : public BetteRCon::Plugin
 {
 public:
 	using AdminSet_t = std::unordered_set<std::string>;
@@ -23,18 +23,18 @@ public:
 	using SquadMap_t = BetteRCon::Server::SquadMap_t;
 	using Team_t = BetteRCon::Server::Team;
 
-	InGameCommands(BetteRCon::Server* pServer)
+	InGameAdmin(BetteRCon::Server* pServer)
 		: Plugin(pServer)
 	{
 		// read the player information flatfile database
 		ReadAdminDatabase();
 
 		// register the test command
-		RegisterCommand("test", std::bind(&InGameCommands::HandleTest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("test", std::bind(&InGameAdmin::HandleTest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
-	virtual std::string_view GetPluginName() const { return "InGameCommands"; }
+	virtual std::string_view GetPluginName() const { return "InGameAdmin"; }
 	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
 
 	void ReadAdminDatabase()
@@ -73,19 +73,21 @@ public:
 
 		// we are good to switch them. let's do it
 		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
+
+		SendChatMessage(std::string("Prefix: ") + prefix, pPlayer);
 	}
 
-	virtual ~InGameCommands() {}
+	virtual ~InGameAdmin() {}
 private:
 	AdminSet_t m_admins;
 };
 
-PLUGIN_EXPORT InGameCommands* CreatePlugin(BetteRCon::Server* pServer)
+PLUGIN_EXPORT InGameAdmin* CreatePlugin(BetteRCon::Server* pServer)
 {
-	return new InGameCommands(pServer);
+	return new InGameAdmin(pServer);
 }
 
-PLUGIN_EXPORT void DestroyPlugin(InGameCommands* pPlugin)
+PLUGIN_EXPORT void DestroyPlugin(InGameAdmin* pPlugin)
 {
 	delete pPlugin;
 }

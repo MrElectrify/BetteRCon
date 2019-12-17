@@ -297,7 +297,7 @@ public:
 			// we are good to switch them. let's do it
 			MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 
-			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
+			SendChatMessage("Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
 			m_moveQueue.pop_front();
 		}
@@ -308,14 +308,14 @@ public:
 		if (pPlayer->teamId == 0 ||
 			pPlayer->type != 0)
 		{
-			SendChatMessage("[Assist] You are not a player!", pPlayer);
+			SendChatMessage("You are not a player!", pPlayer);
 			return;
 		}
 
 		// see if the server is not official
 		if (m_isNotOfficial == false)
 		{
-			SendChatMessage("[Assist] Assist is not possible on official!", pPlayer);
+			SendChatMessage("Assist is not possible on official!", pPlayer);
 			return;
 		}
 
@@ -323,7 +323,7 @@ public:
 		if (m_inRound == false ||
 			m_lastScores.size() != 2)
 		{
-			SendChatMessage("[Assist] The round must be in play in order to use assist!");
+			SendChatMessage("The round must be in play in order to use assist!");
 			return;
 		}
 
@@ -333,7 +333,7 @@ public:
 		std::chrono::seconds timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)
 		{
-			SendChatMessage("[Assist] " + std::to_string(timeLeft.count()) + " seconds left before players are allowed to use assist (3 minutes after round start)!", pPlayer);
+			SendChatMessage(std::to_string(timeLeft.count()) + " seconds left before players are allowed to use assist (3 minutes after round start)!", pPlayer);
 			return;
 		}
 
@@ -351,7 +351,7 @@ public:
 		if (enemyScore < maxScore / 4 ||
 			friendlyScore < maxScore / 4)
 		{
-			SendChatMessage("[Assist] Less than 25% of tickets are left, you cannot use assist!", pPlayer);
+			SendChatMessage("Less than 25% of tickets are left, you cannot use assist!", pPlayer);
 			return;
 		}
 
@@ -362,15 +362,15 @@ public:
 		{
 			// the enemy is winning. they have no reason to switch. see if they are coming back
 			if (enemyScoreDifference > friendlyScoreDifference)
-				SendChatMessage("[Assist] Your team is coming back, but the enemy is still winning!", pPlayer);
+				SendChatMessage("Your team is coming back, but the enemy is still winning!", pPlayer);
 			else
-				SendChatMessage("[Assist] The enemy team is winning and is still gaining!", pPlayer);
+				SendChatMessage("The enemy team is winning and is still gaining!", pPlayer);
 			return;
 		}
 		else if (friendlyScoreDifference > enemyScoreDifference)
 		{
 			// the enemy is coming back
-			SendChatMessage("[Assist] The enemy is losing, but they are making a comeback!", pPlayer);
+			SendChatMessage("The enemy is losing, but they are making a comeback!", pPlayer);
 			return;
 		}
 
@@ -413,7 +413,7 @@ public:
 		if (strengthRatio > 1.5f)
 		{
 			const uint32_t strengthPctDiff = static_cast<uint32_t>((strengthRatio - 1.f) * 100);
-			SendChatMessage("[Assist] The enemy team is " + std::to_string(strengthPctDiff) + "% stronger than your team!", pPlayer);
+			SendChatMessage("The enemy team is " + std::to_string(strengthPctDiff) + "% stronger than your team!", pPlayer);
 			return;
 		}
 
@@ -425,7 +425,7 @@ public:
 		{
 			if (std::chrono::system_clock::now() < (lastAssistIt->second + assistTimeout))
 			{
-				SendChatMessage("[Assist] You can only use assist once every 5 minutes!", pPlayer);
+				SendChatMessage("You can only use assist once every 5 minutes!", pPlayer);
 				return;
 			}
 		}
@@ -445,7 +445,7 @@ public:
 			if (adjustedStrengthRatio > 1.75f)
 			{
 				const uint32_t strengthPctDiff = static_cast<uint32_t>((adjustedStrengthRatio - 1.f) * 100);
-				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%) (" + std::to_string(adjustedEnemyStrength) + ":" + std::to_string(adjustedFriendlyStrength) + ")!\n", pPlayer);
+				SendChatMessage("You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%) (" + std::to_string(adjustedEnemyStrength) + ":" + std::to_string(adjustedFriendlyStrength) + ")!\n", pPlayer);
 				return;
 			}
 
@@ -456,7 +456,7 @@ public:
 		// they are good. add them to the move queue
 		m_moveQueue.push_back(pPlayer->name);
 		m_lastPlayerAssists.emplace(pPlayer->name, std::chrono::system_clock::now());
-		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
+		SendChatMessage("Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
 
 		// try to process the queue now
 		ProcessQueue();
@@ -684,7 +684,7 @@ public:
 		if (playerIt == players.end())
 			return;
 
-		SendChatMessage("[Assist] You have been removed from the queue because you manually switched. Thanks for helping the losing team!", playerIt->second);
+		SendChatMessage("You have been removed from the queue because you manually switched. Thanks for helping the losing team!", playerIt->second);
 	}
 
 	virtual ~Assist() {}
