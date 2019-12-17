@@ -235,13 +235,13 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecon
 
 void Server::MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<PlayerInfo>& pPlayer)
 {
-	// send the command
-	SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" },
-		std::bind(&Server::HandleMovePlayer, this, teamId, squadId, pPlayer, std::placeholders::_1, std::placeholders::_2));
-
 	// assume it worked, remove them from their old team/squad and add them to the new one
 	RemovePlayerFromSquad(pPlayer, teamId, squadId);
 	AddPlayerToSquad(pPlayer, teamId, squadId);
+
+	// send the command
+	SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" },
+		std::bind(&Server::HandleMovePlayer, this, teamId, squadId, pPlayer, std::placeholders::_1, std::placeholders::_2));
 }
 
 Server::~Server()
