@@ -273,8 +273,6 @@ public:
 
 		while (m_moveQueue.empty() == false)
 		{
-			BetteRCon::Internal::g_stdOutLog << "Movequeue not empty\n";
-
 			const std::string& firstPlayer = m_moveQueue.front();
 
 			// find the player in our player list
@@ -284,8 +282,6 @@ public:
 				m_moveQueue.pop_front();
 				continue;
 			}
-
-			BetteRCon::Internal::g_stdOutLog << "Found " << firstPlayer << '\n';
 
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
@@ -297,8 +293,6 @@ public:
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
-
-			BetteRCon::Internal::g_stdOutLog << "Teamsize good\n";
 
 			// let's play nice and find them a random squad
 			uint8_t squadId = 0;
@@ -316,8 +310,6 @@ public:
 					break;
 				}
 			}
-
-			BetteRCon::Internal::g_stdOutLog << "Should move to " << newTeam << " : " << squadId << '\n';
 
 			// we are good to switch them. let's do it
 			MovePlayer(newTeam, squadId, pPlayer);
