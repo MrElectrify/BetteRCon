@@ -73,6 +73,8 @@ public:
 
 		// we are good to switch them. let's do it
 		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
+
+		SendChatMessage(std::string("Prefix: ") + prefix, pPlayer);
 	}
 
 	virtual ~InGameAdmin() {}
