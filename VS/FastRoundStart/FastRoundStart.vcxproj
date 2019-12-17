@@ -75,25 +75,21 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
     <TargetExt>.plugin</TargetExt>
     <OutDir>..\plugins\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
     <TargetExt>.plugin</TargetExt>
     <OutDir>..\plugins\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
     <TargetExt>.plugin</TargetExt>
     <OutDir>..\plugins\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>..\..\include\;..\..\dependencies\asio\asio\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
     <TargetExt>.plugin</TargetExt>
     <OutDir>..\plugins\</OutDir>
   </PropertyGroup>
