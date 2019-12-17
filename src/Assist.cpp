@@ -2,8 +2,8 @@
 
 // STL
 #include <fstream>
+#include <list>
 #include <streambuf>
-#include <queue>
 #include <unordered_map>
 #include <vector>
 
@@ -27,9 +27,10 @@ public:
 		int assists;
 	};
 
+	using MoveQueue_t = std::list<std::string>;
 	using PlayerInfo = BetteRCon::Server::PlayerInfo;
-	using ServerInfo = BetteRCon::Server::ServerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
+	using ServerInfo = BetteRCon::Server::ServerInfo;
 	using SquadMap_t = BetteRCon::Server::SquadMap_t;
 	using Team_t = BetteRCon::Server::Team;
 	using PlayerAssistMap_t = std::unordered_map<std::string, std::chrono::system_clock::time_point>;
@@ -46,6 +47,9 @@ public:
 
 		// don't let them get away so easily
 		RegisterHandler("player.onLeave", std::bind(&Assist::HandlePlayerLeave, this, std::placeholders::_1));
+
+		// listen for team changes so that we can remove them from the move queue if they manually switch
+		RegisterHandler("player.onTeamChange", std::bind(&Assist::HandleTeamChange, this, std::placeholders::_1));
 
 		// store the current round time
 		RegisterHandler("server.onLevelLoaded", std::bind(&Assist::HandleLevelLoaded, this, std::placeholders::_1));
@@ -275,7 +279,7 @@ public:
 
 		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
 
-		while (m_moveQueue.size() > 0)
+		while (m_moveQueue.empty() == false)
 		{
 			const std::string& firstPlayer = m_moveQueue.front();
 
@@ -283,7 +287,7 @@ public:
 			const PlayerMap_t::const_iterator playerIt = players.find(firstPlayer);
 			if (playerIt == players.end())
 			{
-				m_moveQueue.pop();
+				m_moveQueue.pop_front();
 				continue;
 			}
 
@@ -320,14 +324,14 @@ public:
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
-			m_moveQueue.pop();
+			m_moveQueue.pop_front();
 		}
 	}
 
 	void HandlePlayerChat(const std::vector<std::string>& eventArgs)
 	{
-		const std::string& playerName = eventArgs.at(1);
-		const std::string& chatMessage = eventArgs.at(2);
+		const std::string& playerName = eventArgs[1];
+		const std::string& chatMessage = eventArgs[2];
 
 		// they sent more than just the assist request
 		if (chatMessage.size() > 8)
@@ -494,7 +498,7 @@ public:
 		}
 
 		// they are good. add them to the move queue
-		m_moveQueue.push(playerName);
+		m_moveQueue.push_back(playerName);
 		m_lastPlayerAssists.emplace(playerName, std::chrono::system_clock::now());
 		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
 
@@ -508,7 +512,7 @@ public:
 		if (m_inRound == false)
 			return;
 
-		const std::string& playerName = eventArgs.at(1);
+		const std::string& playerName = eventArgs[1];
 
 		const ServerInfo& serverInfo = GetServerInfo();
 		const PlayerMap_t& players = GetPlayers();
@@ -705,6 +709,35 @@ public:
 		ProcessQueue();
 	}
 
+	void HandleTeamChange(const std::vector<std::string>& eventArgs)
+	{
+		// no need to search for the player if there is nobody in the queue
+		if (m_moveQueue.empty() == true)
+			return;
+
+		const std::string& playerName = eventArgs[1];
+
+		const MoveQueue_t::iterator playerQueueIt = std::find(m_moveQueue.begin(), m_moveQueue.end(), playerName);
+		
+		// they are not in the move queue, ignore them
+		if (playerQueueIt == m_moveQueue.end())
+			return;
+
+		// they switched with a pending assist, cancel the assist
+		m_moveQueue.erase(playerQueueIt);
+
+		const PlayerMap_t& players = GetPlayers();
+
+		// find their player so we can notify them that they were removed
+		const PlayerMap_t::const_iterator playerIt = players.find(playerName);
+
+		// they probably left and that's why we got the event
+		if (playerIt == players.end())
+			return;
+
+		SendChatMessage("[Assist] You have been removed from the queue because you manually switched. Thanks for helping the losing team!", playerIt->second);
+	}
+
 	virtual ~Assist() {}
 private:
 	// scores
@@ -726,7 +759,7 @@ private:
 	PlayerStrengthMap_t m_playerStrengthDatabase;
 
 	// move queue
-	std::queue<std::string> m_moveQueue;
+	MoveQueue_t m_moveQueue;
 };
 
 PLUGIN_EXPORT Assist* CreatePlugin(BetteRCon::Server* pServer)
