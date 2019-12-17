@@ -483,11 +483,13 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			std::string playerName = playerInfo.at(offset + numVar * i);
 			std::shared_ptr<PlayerInfo> pPlayer;
 
+			bool firstTime = false;
 			const PlayerMap_t::const_iterator playerIt = m_players.find(playerName);
 			if (playerIt == m_players.end())
 			{
 				pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
 				pPlayer->firstSeen = std::chrono::system_clock::now();
+				firstTime = true;
 			}
 			else
 				pPlayer = playerIt->second;
@@ -504,8 +506,9 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
 			pPlayer->seenThisCheck = true;
 
-			// add the player to their squad
-			AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
+			if (firstTime == true)
+			// add the player to their squad if they are new
+				AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
 		}
 	}
 	catch (const std::exception& e)
