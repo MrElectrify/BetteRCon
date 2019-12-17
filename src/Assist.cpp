@@ -311,6 +311,8 @@ public:
 				}
 			}
 
+			BetteRCon::Internal::g_stdOutLog << "Attempting to move player " << pPlayer->name << " to " << static_cast<uint16_t>(newTeamId) << ':' << static_cast<uint16_t>(squadId) << '\n';
+
 			// we are good to switch them. let's do it
 			MovePlayer(newTeamId, squadId, pPlayer);
 
@@ -365,7 +367,7 @@ public:
 		}
 
 		// see if it has been long enough
-		constexpr std::chrono::minutes timeBeforeAssist(3);
+		constexpr std::chrono::minutes timeBeforeAssist(0);
 
 		std::chrono::seconds timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)
