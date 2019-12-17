@@ -275,6 +275,8 @@ public:
 
 		while (m_moveQueue.empty() == false)
 		{
+			BetteRCon::Internal::g_stdOutLog << "Queue not empty\n";
+
 			const std::string& firstPlayer = m_moveQueue.front();
 
 			// find the player in our player list
@@ -295,6 +297,8 @@ public:
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
+
+			BetteRCon::Internal::g_stdOutLog << "Enough space\n";
 
 			// let's play nice and find them a random squad
 			uint8_t squadId = 0;
