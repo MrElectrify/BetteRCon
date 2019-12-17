@@ -313,6 +313,8 @@ public:
 				}
 			}
 
+			BetteRCon::Internal::g_stdOutLog << "Moving player " << pPlayer->name << '\n';
+
 			// we are good to switch them. let's do it
 			MovePlayer(newTeamId, squadId, pPlayer);
 
