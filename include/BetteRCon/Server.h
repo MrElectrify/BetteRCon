@@ -94,6 +94,8 @@ namespace BetteRCon
 			uint16_t port = 0;
 			bool seenThisCheck = false;
 			std::chrono::system_clock::time_point firstSeen;
+			// assume they are alive so that we force move unless we know otherwise
+			bool alive = true;
 		};
 	private:
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
@@ -189,6 +191,9 @@ namespace BetteRCon
 		// Schedules an action to be executed in the future
 		virtual void ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow);
 
+		// Moves a player by forcekilling them if they are alive. Updates the teams to affect the change
+		virtual void MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<PlayerInfo>& pPlayer);
+
 		~Server();
 	private:
 		void ClearContainers();
@@ -209,7 +214,10 @@ namespace BetteRCon
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
 		void HandleOnKill(const std::vector<std::string>& eventArgs);
 		void HandleOnRoundEnd(const std::vector<std::string>& eventArgs);
+		void HandleOnSpawn(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
+
+		void HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId, const std::shared_ptr<PlayerInfo>& pPlayer, const ErrorCode_t& ec, const std::vector<std::string>& response);
 
 		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
 		void RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);

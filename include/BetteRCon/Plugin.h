@@ -88,8 +88,8 @@ namespace BetteRCon
 		// Sends a chat message to a set of players, of max 128 characters
 		void SendChatMessage(const std::string& message, const std::vector<std::shared_ptr<Server::PlayerInfo>>& players) { for (const auto& pPlayer : players) { SendChatMessage(message, pPlayer); } }
 
-		// Force moves a player
-		void ForceMovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		// Moves a player by killing them if they are alive
+		void MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<Server::PlayerInfo>& pPlayer) { m_pServer->MovePlayer(teamId, squadId, pPlayer); }
 	private:
 		bool m_enabled = false;
 

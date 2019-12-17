@@ -316,7 +316,7 @@ public:
 			}
 
 			// we are good to switch them. let's do it
-			ForceMovePlayer(newTeam, squadId, pPlayer);
+			MovePlayer(newTeam, squadId, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
