@@ -238,7 +238,7 @@ public:
 		const float totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
 		const float weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
-		const float roundKD = pPlayer->kills / ((pPlayer->deaths != 0) ? pPlayer->deaths : 1);
+		const float roundKD = (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : pPlayer->kills;
 		const float roundRelativeKDR = (friendlyAvgKDR != 0.f) ? roundKD / friendlyAvgKDR : 1.f;
 		const float weightedRoundRelativeKDR = roundRelativeKDR * roundTime * strengthMultiplier;
 
@@ -524,10 +524,10 @@ public:
 			const std::chrono::system_clock::duration timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
 
 			const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
-			const float roundTime = (maxScore != 0) ? levelAttendance * ((maxScore - minScore) / maxScore) : 1.f;
+			const float roundTime = (maxScore != 0) ? levelAttendance * ((static_cast<float>(maxScore) - minScore) / maxScore) : 1.f;
 
 			// add team telemetry
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : pPlayer->kills;
 			playerKPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->kills / roundTime : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->score / roundTime : 0.f;
 
@@ -605,7 +605,7 @@ public:
 			const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
 
 			// add team telemetry
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : pPlayer->kills;
 			playerKPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->kills / levelAttendance : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->score / levelAttendance : 0.f;
 
