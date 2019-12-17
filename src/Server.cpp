@@ -162,6 +162,7 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 	Packet_t packet(command, s_lastSequence++);
 
 	// send the packet
+	std::lock_guard connectionLock(m_connectionMutex);
 	m_connection.SendPacket(packet, [ recvCallback{ std::move(recvCallback) }](const Connection_t::ErrorCode_t& ec, std::shared_ptr<Packet_t> packet)
 	{
 		// make sure we don't have an error
@@ -296,6 +297,7 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 	const Packet_t packet(response, sequence, true);
 
 	// send the packet
+	std::lock_guard connectionLock(m_connectionMutex);
 	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
 }
 
