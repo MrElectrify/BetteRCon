@@ -2,8 +2,8 @@
 
 // STL
 #include <fstream>
+#include <list>
 #include <streambuf>
-#include <queue>
 #include <unordered_map>
 #include <vector>
 
@@ -27,9 +27,12 @@ public:
 		int assists;
 	};
 
+	using MoveQueue_t = std::list<std::string>;
 	using PlayerInfo = BetteRCon::Server::PlayerInfo;
-	using ServerInfo = BetteRCon::Server::ServerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
+	using ServerInfo = BetteRCon::Server::ServerInfo;
+	using SquadMap_t = BetteRCon::Server::SquadMap_t;
+	using Team_t = BetteRCon::Server::Team;
 	using PlayerAssistMap_t = std::unordered_map<std::string, std::chrono::system_clock::time_point>;
 	using PlayerStrengthMap_t = std::unordered_map<std::string, PlayerStrengthEntry>;
 
@@ -44,6 +47,9 @@ public:
 
 		// don't let them get away so easily
 		RegisterHandler("player.onLeave", std::bind(&Assist::HandlePlayerLeave, this, std::placeholders::_1));
+
+		// listen for team changes so that we can remove them from the move queue if they manually switch
+		RegisterHandler("player.onTeamChange", std::bind(&Assist::HandleTeamChange, this, std::placeholders::_1));
 
 		// store the current round time
 		RegisterHandler("server.onLevelLoaded", std::bind(&Assist::HandleLevelLoaded, this, std::placeholders::_1));
@@ -63,7 +69,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "Assist"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.1.0"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.2.0"; }
 
 	virtual void Enable()
 	{
@@ -208,11 +214,14 @@ public:
 
 	void CalculatePlayerStrength(const BetteRCon::Server::ServerInfo& serverInfo, const size_t numTeams, const std::shared_ptr<BetteRCon::Server::PlayerInfo>& pPlayer,
 		const std::vector<float>& playerStrengths, const std::vector<float>& playerKDTotals, const std::vector<float>& playerKPRTotals, const std::vector<float>& playerSPRTotals,
-		const std::vector<uint32_t>& teamSizes, PlayerStrengthEntry& playerStrengthEntry, bool roundEnd = false, bool win = false)
+		PlayerStrengthEntry& playerStrengthEntry, bool roundEnd = false, bool win = false)
 	{
+		const uint8_t enemyTeam = (pPlayer->teamId % 2) + 1;
+		const uint8_t friendlyTeam = pPlayer->teamId;
+
 		// teamIds start at 1, but our vector starts at 0. it is size 2
-		const float enemyStrength = playerStrengths[pPlayer->teamId % 2];
-		const float friendlyStrength = playerStrengths[pPlayer->teamId - 1];
+		const float enemyStrength = playerStrengths[enemyTeam - 1];
+		const float friendlyStrength = playerStrengths[friendlyTeam - 1];
 
 		// multipliers
 		const int32_t minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
@@ -225,10 +234,12 @@ public:
 		const float roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : (static_cast<float>(maxScore - minScore) / maxScore)) : 1.f);
 		const float strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
+		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
+
 		// friendly stats for comparison
-		const float friendlyAvgKDR = playerKDTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
-		const float friendlyAvgKPR = playerKPRTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
-		const float friendlyAvgSPR = playerSPRTotals[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1];
+		const float friendlyAvgKDR = (friendlyTeamSize > 0) ? playerKDTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
+		const float friendlyAvgKPR = (friendlyTeamSize > 0) ? playerKPRTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
+		const float friendlyAvgSPR = (friendlyTeamSize > 0) ? playerSPRTotals[pPlayer->teamId - 1] / friendlyTeamSize : 1.f;
 
 		const float totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
@@ -268,7 +279,7 @@ public:
 
 		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
 
-		while (m_moveQueue.size() > 0)
+		while (m_moveQueue.empty() == false)
 		{
 			const std::string& firstPlayer = m_moveQueue.front();
 
@@ -276,34 +287,51 @@ public:
 			const PlayerMap_t::const_iterator playerIt = players.find(firstPlayer);
 			if (playerIt == players.end())
 			{
-				m_moveQueue.pop();
+				m_moveQueue.pop_front();
 				continue;
 			}
 
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
+			const uint8_t newTeam = (pPlayer->teamId % 2) + 1;
+
 			// make sure the enemy team has space
-			uint32_t teamSize = 0;
-			for (const PlayerMap_t::value_type& player : players)
-				teamSize += (player.second->teamId != pPlayer->teamId);
+			uint32_t teamSize = GetTeam(newTeam).playerCount;
 
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
 
+			// let's play nice and find them a random squad
+			uint8_t squadId = 0;
+
+			// find their team
+			const Team_t& currentTeam = GetTeam(pPlayer->teamId);
+			
+			constexpr size_t SQUAD_MAX = 5;
+
+			for (const SquadMap_t::value_type& squad : currentTeam.squads)
+			{
+				if (squad.second.size() < SQUAD_MAX)
+				{
+					squadId = squad.first;
+					break;
+				}
+			}
+
 			// we are good to switch them. let's do it
-			ForceMovePlayer((pPlayer->teamId % 2) + 1, 0, pPlayer);
+			MovePlayer(newTeam, squadId, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
-			m_moveQueue.pop();
+			m_moveQueue.pop_front();
 		}
 	}
 
 	void HandlePlayerChat(const std::vector<std::string>& eventArgs)
 	{
-		const std::string& playerName = eventArgs.at(1);
-		const std::string& chatMessage = eventArgs.at(2);
+		const std::string& playerName = eventArgs[1];
+		const std::string& chatMessage = eventArgs[2];
 
 		// they sent more than just the assist request
 		if (chatMessage.size() > 8)
@@ -354,9 +382,12 @@ public:
 			return;
 		}
 
+		const uint8_t enemyTeam = (pPlayer->teamId % 2) + 1;
+		const uint8_t friendlyTeam = pPlayer->teamId;
+
 		// see if their team is winning
-		const int32_t enemyScore = m_lastScores[pPlayer->teamId % 2];
-		const int32_t friendlyScore = m_lastScores[pPlayer->teamId - 1];
+		const int32_t enemyScore = m_lastScores[enemyTeam];
+		const int32_t friendlyScore = m_lastScores[friendlyTeam];
 
 		const ServerInfo& serverInfo = GetServerInfo();
 		const int32_t maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
@@ -369,8 +400,8 @@ public:
 			return;
 		}
 
-		const int32_t enemyScoreDifference = m_lastScoreDiffs[pPlayer->teamId % 2];
-		const int32_t friendlyScoreDifference = m_lastScoreDiffs[pPlayer->teamId - 1];
+		const int32_t enemyScoreDifference = m_lastScoreDiffs[enemyTeam];
+		const int32_t friendlyScoreDifference = m_lastScoreDiffs[friendlyTeam];
 
 		if (enemyScore > friendlyScore)
 		{
@@ -388,10 +419,9 @@ public:
 			return;
 		}
 
-		const size_t numTeams = serverInfo.m_scores.m_teamScores.size();
+		const size_t numTeams = GetTeams().size();
 
 		std::vector<float> playerStrengths(numTeams);
-		std::vector<uint32_t> teamSizes(numTeams);
 
 		// first find the total strength for each team
 		for (const PlayerMap_t::value_type& player : players)
@@ -401,8 +431,6 @@ public:
 			// make sure they are on a playing team
 			if (pPlayer->teamId == 0)
 				continue;
-
-			++teamSizes[pPlayer->teamId - 1];
 
 			// see if they are already in the database
 			const PlayerStrengthMap_t::const_iterator playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
@@ -417,9 +445,12 @@ public:
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
 		}
 
+		const uint32_t enemyTeamSize = GetTeam(enemyTeam).playerCount;
+		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
+
 		// see if the enemy team is at least 20% stronger than they are
-		const float friendlyStrength = (teamSizes[pPlayer->teamId - 1] != 0) ? playerStrengths[pPlayer->teamId - 1] / teamSizes[pPlayer->teamId - 1] : 0.f;
-		const float enemyStrength = (teamSizes[pPlayer->teamId % 2] != 0) ? playerStrengths[pPlayer->teamId % 2] / teamSizes[pPlayer->teamId % 2] : 0.f;
+		const float enemyStrength = (enemyTeamSize > 0) ? playerStrengths[enemyTeam - 1] / enemyTeamSize : 0.f;
+		const float friendlyStrength = (friendlyTeamSize > 0) ? playerStrengths[friendlyTeam - 1] / friendlyTeamSize : 0.f;
 
 		const float strengthRatio = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
 
@@ -467,7 +498,7 @@ public:
 		}
 
 		// they are good. add them to the move queue
-		m_moveQueue.push(playerName);
+		m_moveQueue.push_back(playerName);
 		m_lastPlayerAssists.emplace(playerName, std::chrono::system_clock::now());
 		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
 
@@ -481,7 +512,7 @@ public:
 		if (m_inRound == false)
 			return;
 
-		const std::string& playerName = eventArgs.at(1);
+		const std::string& playerName = eventArgs[1];
 
 		const ServerInfo& serverInfo = GetServerInfo();
 		const PlayerMap_t& players = GetPlayers();
@@ -505,7 +536,6 @@ public:
 		std::vector<float> playerKDTotals(numTeams);
 		std::vector<float> playerKPRTotals(numTeams);
 		std::vector<float> playerSPRTotals(numTeams);
-		std::vector<uint32_t> teamSizes(numTeams);
 
 		const int32_t minScore = *std::min_element(serverInfo.m_scores.m_teamScores.begin(), serverInfo.m_scores.m_teamScores.end());
 		const int32_t maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
@@ -526,7 +556,6 @@ public:
 			const float roundTime = (maxScore != 0) ? levelAttendance * ((maxScore - minScore) / maxScore) : 1.f;
 
 			// add team telemetry
-			++teamSizes[pPlayer->teamId - 1];
 			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
 			playerKPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->kills / roundTime : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->score / roundTime : 0.f;
@@ -552,7 +581,7 @@ public:
 		PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
-		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry);
+		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry);
 
 		// try to process the queue, maybe a spot just opened up on the other team
 		ProcessQueue();
@@ -589,7 +618,6 @@ public:
 		std::vector<float> playerKDTotals(numTeams);
 		std::vector<float> playerKPRTotals(numTeams);
 		std::vector<float> playerSPRTotals(numTeams);
-		std::vector<uint32_t> teamSizes(numTeams);
 
 		// first find the total strength for each team
 		for (const PlayerMap_t::value_type& player : players)
@@ -606,7 +634,6 @@ public:
 			const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
 
 			// add team telemetry
-			++teamSizes[pPlayer->teamId - 1];
 			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
 			playerKPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->kills / levelAttendance : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->score / levelAttendance : 0.f;
@@ -642,7 +669,7 @@ public:
 
 			const bool playerWon = pPlayer->teamId == m_lastWinningTeam;
 
-			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, teamSizes, playerStrengthEntry, true, playerWon);
+			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry, true, playerWon);
 		}
 
 		// write the database
@@ -682,6 +709,35 @@ public:
 		ProcessQueue();
 	}
 
+	void HandleTeamChange(const std::vector<std::string>& eventArgs)
+	{
+		// no need to search for the player if there is nobody in the queue
+		if (m_moveQueue.empty() == true)
+			return;
+
+		const std::string& playerName = eventArgs[1];
+
+		const MoveQueue_t::iterator playerQueueIt = std::find(m_moveQueue.begin(), m_moveQueue.end(), playerName);
+		
+		// they are not in the move queue, ignore them
+		if (playerQueueIt == m_moveQueue.end())
+			return;
+
+		// they switched with a pending assist, cancel the assist
+		m_moveQueue.erase(playerQueueIt);
+
+		const PlayerMap_t& players = GetPlayers();
+
+		// find their player so we can notify them that they were removed
+		const PlayerMap_t::const_iterator playerIt = players.find(playerName);
+
+		// they probably left and that's why we got the event
+		if (playerIt == players.end())
+			return;
+
+		SendChatMessage("[Assist] You have been removed from the queue because you manually switched. Thanks for helping the losing team!", playerIt->second);
+	}
+
 	virtual ~Assist() {}
 private:
 	// scores
@@ -703,7 +759,7 @@ private:
 	PlayerStrengthMap_t m_playerStrengthDatabase;
 
 	// move queue
-	std::queue<std::string> m_moveQueue;
+	MoveQueue_t m_moveQueue;
 };
 
 PLUGIN_EXPORT Assist* CreatePlugin(BetteRCon::Server* pServer)

@@ -127,9 +127,9 @@ const Server::TeamMap_t& Server::GetTeams() const noexcept
 	return m_teams;
 }
 
-const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexcept
+const Server::Team& Server::GetTeam(const uint8_t teamId) const noexcept
 {
-	static const SquadMap_t emptyTeam;
+	static const Team emptyTeam;
 
 	const TeamMap_t::const_iterator teamIt = m_teams.find(teamId);
 	if (teamIt == m_teams.end())
@@ -138,11 +138,11 @@ const Server::SquadMap_t& Server::GetSquadMap(const uint8_t teamId) const noexce
 	return teamIt->second;
 }
 
-const Server::PlayerMap_t& Server::GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept
+const Server::PlayerMap_t& Server::GetSquad(const uint8_t teamId, const uint8_t squadId) const noexcept
 {
 	static const PlayerMap_t emptySquad;
 
-	const SquadMap_t& squadMap = GetSquadMap(teamId);
+	const SquadMap_t& squadMap = GetTeam(teamId).squads;
 
 	const SquadMap_t::const_iterator squadIt = squadMap.find(squadId);
 	if (squadIt == squadMap.end())
@@ -231,6 +231,17 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const std::chrono::syst
 void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow)
 {
 	ScheduleAction(std::move(timedAction), std::chrono::milliseconds(millisecondsFromNow));
+}
+
+void Server::MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<PlayerInfo>& pPlayer)
+{
+	// send the command
+	SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" },
+		std::bind(&Server::HandleMovePlayer, this, teamId, squadId, pPlayer, std::placeholders::_1, std::placeholders::_2));
+
+	// assume it worked, remove them from their old team/squad and add them to the new one
+	RemovePlayerFromSquad(pPlayer, teamId, squadId);
+	AddPlayerToSquad(pPlayer, teamId, squadId);
 }
 
 Server::~Server()
@@ -642,6 +653,9 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 	// increment victim's deaths
 	++victimIt->second->deaths;
 
+	// update that they are dead
+	victimIt->second->alive = false;
+
 	// they suicided
 	if (killerName.size() == 0 ||
 		killerName == victimName)
@@ -661,6 +675,30 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 void Server::HandleOnRoundEnd(const std::vector<std::string>& eventArgs)
 {
 	HandlePlayerInfo(eventArgs);
+}
+
+void Server::HandleOnSpawn(const std::vector<std::string>& eventArgs)
+{
+	if (eventArgs.size() < 2)
+	{
+		// the server is not ok, disconnect
+		BetteRCon::Internal::g_stdErrLog << "OnSpawn did not have at least 2 members: " << eventArgs.size() << '\n';
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	const std::string& playerName = eventArgs[1];
+
+	// find the player
+	const PlayerMap_t::iterator playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " spawned but is not stored!\n";
+		return;
+	}
+
+	playerIt->second->alive = true;
 }
 
 void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
@@ -759,20 +797,49 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 	}
 }
 
+void Server::HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId, const std::shared_ptr<PlayerInfo>& pPlayer, const ErrorCode_t& ec, const std::vector<std::string>& response)
+{
+	// connection should be closed automatically
+	if (ec)
+		return;
+
+	if (response.size() != 1)
+	{
+		// the server is not ok, disconnect
+		BetteRCon::Internal::g_stdErrLog << "ERROR: MovePlayer sent an invalid response of size " << response.size() << '\n';
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	if (response[0] != "OK")
+	{
+		// the move failed. move them back to their old team
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to move player: " << pPlayer->name << '\n';
+
+		// adjust their team and squad internally
+		RemovePlayerFromSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
+		AddPlayerToSquad(pPlayer, oldTeamId, oldSquadId);
+	}
+}
+
 void Server::AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId)
 {
 	// add them to the new team and squad
 	TeamMap_t::iterator teamIt = m_teams.find(teamId);
 	if (teamIt == m_teams.end())
-		teamIt = m_teams.emplace(teamId, SquadMap_t()).first;
+		teamIt = m_teams.emplace(teamId, Team{}).first;
 
-	SquadMap_t::iterator squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
-		squadIt = teamIt->second.emplace(squadId, PlayerMap_t()).first;
+	SquadMap_t::iterator squadIt = teamIt->second.squads.find(squadId);
+	if (squadIt == teamIt->second.squads.end())
+		squadIt = teamIt->second.squads.emplace(squadId, PlayerMap_t()).first;
 
 	// change their squad and teamId
 	pPlayer->teamId = teamId;
 	pPlayer->squadId = squadId;
+
+	// increment the team playerCount
+	++teamIt->second.playerCount;
 
 	squadIt->second.emplace(pPlayer->name, pPlayer);
 }
@@ -787,8 +854,8 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 		return;
 	}
 
-	const SquadMap_t::iterator squadIt = teamIt->second.find(squadId);
-	if (squadIt == teamIt->second.end())
+	const SquadMap_t::iterator squadIt = teamIt->second.squads.find(squadId);
+	if (squadIt == teamIt->second.squads.end())
 	{
 		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << pPlayer->name << " changed squads/teams but had an invalid squad\n";
 		return;
@@ -806,10 +873,13 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 
 	// erase the squad if they were alone in their squad
 	if (squadIt->second.empty() == true)
-		teamIt->second.erase(squadIt);
+		teamIt->second.squads.erase(squadIt);
+
+	// decrement the team's playercount
+	--teamIt->second.playerCount;
 
 	// erase the team if it is empty
-	if (teamIt->second.empty() == true)
+	if (teamIt->second.squads.empty() == true)
 		m_teams.erase(teamIt);
 }
 

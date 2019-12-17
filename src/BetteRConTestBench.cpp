@@ -122,12 +122,10 @@ int main(int argc, char* argv[])
 			// print the teams and squads
 			static const std::string squads[] = { "None", "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-Ray", "Yankee", "Zulu", "Haggard", "Sweetwater", "Preston", "Redford", "Faith", "Celeste",  };
 		
-			for (const auto& team : teams)
+			for (const Server::TeamMap_t::value_type& team : teams)
 			{
-				size_t teamCount = 0;
-				std::for_each(team.second.begin(), team.second.end(), [&teamCount](const decltype(team.second)::value_type& val) { teamCount += val.second.size(); });
-				std::cout << "Team " << static_cast<uint32_t>(team.first) << " (" << teamCount << " players, " << team.second.size() << " squads):\n";
-				for (const auto& squad : team.second)
+				std::cout << "Team " << static_cast<uint32_t>(team.first) << " (" << team.second.playerCount << " players, " << team.second.squads.size() << " squads):\n";
+				for (const Server::SquadMap_t::value_type& squad : team.second.squads)
 				{
 					std::cout << "\tSquad " << squads[squad.first] << " (" << squad.second.size() << " players):\n";
 					for (const auto& player : squad.second)

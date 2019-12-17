@@ -94,6 +94,8 @@ namespace BetteRCon
 			uint16_t port = 0;
 			bool seenThisCheck = false;
 			std::chrono::system_clock::time_point firstSeen;
+			// assume they are alive so that we force move unless we know otherwise
+			bool alive = true;
 		};
 	private:
 		using PluginDestructor_t = std::add_pointer_t<void(Plugin*)>;
@@ -106,7 +108,6 @@ namespace BetteRCon
 			PluginDestructor_t pDestructor;
 		};
 	public:
-
 		using Connection_t = Internal::Connection;
 		using Endpoint_t = Connection_t::Endpoint_t;
 		using ErrorCode_t = Connection_t::ErrorCode_t;
@@ -119,7 +120,12 @@ namespace BetteRCon
 		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
 		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
 		using SquadMap_t = std::unordered_map<uint8_t, PlayerMap_t>;
-		using TeamMap_t = std::unordered_map<uint8_t, SquadMap_t>;
+		struct Team
+		{
+			SquadMap_t squads;
+			uint32_t playerCount = 0;
+		};
+		using TeamMap_t = std::unordered_map<uint8_t, Team>;
 		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamMap_t& teams)>;
 		// success is always true when load is false. failReason is only populated if success is false
 		using PluginCallback_t = std::function<void(const std::string& pluginName, const bool load, const bool success, const std::string& failReason)>;
@@ -153,12 +159,12 @@ namespace BetteRCon
 		virtual const ServerInfo& GetServerInfo() const noexcept;
 		// Gets server players
 		virtual const PlayerMap_t& GetPlayers() const noexcept;
-		// Gets team map
+		// Gets teams
 		virtual const TeamMap_t& GetTeams() const noexcept;
-		// Gets team squads
-		virtual const SquadMap_t& GetSquadMap(const uint8_t teamId) const noexcept;
-		// Gets squad players
-		virtual const PlayerMap_t& GetSquadPlayers(const uint8_t teamId, const uint8_t squadId) const noexcept;
+		// Gets team
+		virtual const Team& GetTeam(const uint8_t teamId) const noexcept;
+		// Gets team squad
+		virtual const PlayerMap_t& GetSquad(const uint8_t teamId, const uint8_t squadId) const noexcept;
 
 		// Gets the last error code, which will tell why the server disconnected if it did
 		ErrorCode_t GetLastErrorCode() const noexcept;
@@ -185,6 +191,9 @@ namespace BetteRCon
 		// Schedules an action to be executed in the future
 		virtual void ScheduleAction(TimedAction_t&& timedAction, const size_t millisecondsFromNow);
 
+		// Moves a player by forcekilling them if they are alive. Updates the teams to affect the change
+		virtual void MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<PlayerInfo>& pPlayer);
+
 		~Server();
 	private:
 		void ClearContainers();
@@ -205,7 +214,10 @@ namespace BetteRCon
 		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
 		void HandleOnKill(const std::vector<std::string>& eventArgs);
 		void HandleOnRoundEnd(const std::vector<std::string>& eventArgs);
+		void HandleOnSpawn(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
+
+		void HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId, const std::shared_ptr<PlayerInfo>& pPlayer, const ErrorCode_t& ec, const std::vector<std::string>& response);
 
 		void AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
 		void RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const uint8_t teamId, const uint8_t squadId);
