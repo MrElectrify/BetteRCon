@@ -76,15 +76,23 @@ public:
 			offset = 1;
 
 		// all commands begin with !
-		if (chatMessage[offset] != '!')
+		if (chatMessage[offset++] != '!')
 			return;
 
 		// split up their message by spaces
 		std::vector<std::string> commandArgs;
-		while (size_t space = chatMessage.find(' ', offset) != std::string::npos)
+		size_t space = chatMessage.find(' ', offset);
+		if (space == std::string::npos)
 		{
-			commandArgs.emplace_back(chatMessage.substr(offset, space - offset));
-			offset = space + 1;
+			commandArgs.emplace_back(chatMessage.substr(offset));
+		}
+		else
+		{
+			while ((space = chatMessage.find(' ', offset)) != std::string::npos)
+			{
+				commandArgs.emplace_back(chatMessage.substr(offset, space - offset));
+				offset = space + 1;
+			}
 		}
 
 		// see if a handler exists for the command
