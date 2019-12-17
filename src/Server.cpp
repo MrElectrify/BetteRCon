@@ -319,7 +319,7 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 	auto callHandlers = [&event = std::as_const(event)](const EventCallbackMap_t& eventHandlerMap)
 	{
 		// call each event handler
-		const std::pair<EventCallbackMap_t::const_iterator, EventCallbackMap_t::const_iterator> eventRange = eventHandlerMap.equal_range(event->GetWords().front());
+		const std::pair<const EventCallbackMap_t::const_iterator, const EventCallbackMap_t::const_iterator> eventRange = eventHandlerMap.equal_range(event->GetWords().front());
 
 		for (EventCallbackMap_t::const_iterator it = eventRange.first; it != eventRange.second; ++it)
 			it->second(event->GetWords());
@@ -335,10 +335,10 @@ void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
 		if (plugin.second.pPlugin->IsEnabled() == false)
 			continue;
 
-		const Plugin::HandlerMap_t& handlers = plugin.second.pPlugin->GetEventHandlers();
+		const Plugin::EventHandlerMap_t& handlers = plugin.second.pPlugin->GetEventHandlers();
 
 		// call their handler
-		const Plugin::HandlerMap_t::const_iterator handlerIt = handlers.find(event->GetWords().front());
+		const Plugin::EventHandlerMap_t::const_iterator handlerIt = handlers.find(event->GetWords().front());
 
 		if (handlerIt != handlers.end())
 			handlerIt->second(event->GetWords());
@@ -562,78 +562,76 @@ void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 	AddPlayerToSquad(pPlayer, 0, 0);
 }
 
-void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
+void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 {
-	// onLeave means they left the game. Remove them from the list of players
-	if (eventArgs.size() < 2)
+	if (eventArgs.size() < 4)
 	{
 		// the server is not ok, disconnect
-		BetteRCon::Internal::g_stdErrLog << "OnLeave did not have at least members: " << eventArgs.size() << '\n';
+		BetteRCon::Internal::g_stdErrLog << "OnChat did not have at least 4 members: " << eventArgs.size() << '\n';
 		ErrorCode_t ec;
 		Disconnect(ec);
 		return;
 	}
 
 	const std::string& playerName = eventArgs[1];
+	const std::string& chatMessage = eventArgs[2];
 
-	const PlayerMap_t::const_iterator playerIt = m_players.find(playerName);
-	if (playerIt == m_players.end())
-	{
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal player map\n";
+	// make sure it isn't an empty chat message
+	if (chatMessage.empty() == true)
 		return;
-	}
 
-	const uint8_t teamId = playerIt->second->teamId;
-	const uint8_t squadId = playerIt->second->squadId;
-
-	// erase them from the team map
-	RemovePlayerFromSquad(playerIt->second, teamId, squadId);
-
-	// remove them from the player map
-	m_players.erase(playerIt);
-}
-
-void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
-{
-	// onLeave means they left the game. Remove them from the list of players
-	if (eventArgs.size() != 4)
-	{
-		// the server is not ok, disconnect
-		BetteRCon::Internal::g_stdErrLog << "OnTeamChange did not have 4 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
-		return;
-	}
-
-	const std::string& playerName = eventArgs[1];
-	const uint8_t newTeamId = static_cast<uint8_t>(std::stoi(eventArgs[2]));
-	const uint8_t newSquadId = static_cast<uint8_t>(std::stoi(eventArgs[3]));
-
-	// the game likes to tell us after they leave that they switch teams, and this might also be the first we see of them
+	// see if the player exists
 	const PlayerMap_t::const_iterator playerIt = m_players.find(playerName);
 	if (playerIt == m_players.end())
 		return;
 
-	const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
-	const uint8_t teamId = pPlayer->teamId;
-	const uint8_t squadId = pPlayer->squadId;
+	size_t offset = 0;
+	// remove the slash if there is one
+	if (chatMessage[0] == '/')
+		offset = 1;
 
-	// they didn't actually change, or we are handling both messages
-	if (newTeamId == teamId &&
-		newSquadId == squadId)
-		return;
+	char prefix = '\0';
 
-	// remove them from their squad
-	RemovePlayerFromSquad(pPlayer, teamId, squadId);
+	// all commands begin with !
+	if (chatMessage[offset] == '!' ||
+		chatMessage[offset] == '@' ||
+		chatMessage[offset] == '#')
+	{
+		prefix = chatMessage[offset];
+		++offset;
+	}
 
-	// add them to the new squad
-	AddPlayerToSquad(pPlayer, newTeamId, newSquadId);
-}
+	// split up their message by spaces
+	std::vector<std::string> commandArgs;
+	size_t space = chatMessage.find(' ', offset);
+	if (space == std::string::npos)
+	{
+		commandArgs.emplace_back(chatMessage.substr(offset));
+	}
+	else
+	{
+		while ((space = chatMessage.find(' ', offset)) != std::string::npos)
+		{
+			commandArgs.emplace_back(chatMessage.substr(offset, space - offset));
+			offset = space + 1;
+		}
+	}
 
-void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
-{
-	// they both do the same thing but can be called in certain circumstances
-	HandleOnTeamChange(eventArgs);
+	// call each plugin's command handler
+	for (const PluginMap_t::value_type& plugin : m_plugins)
+	{
+		// make sure the plugin is enabled
+		if (plugin.second.pPlugin->IsEnabled() == false)
+			continue;
+
+		const Plugin::CommandHandlerMap_t& commandHandlers = plugin.second.pPlugin->GetCommandHandlers();
+
+		// call their handler
+		const std::pair<const Plugin::CommandHandlerMap_t::const_iterator, const Plugin::CommandHandlerMap_t::const_iterator> commandRange = commandHandlers.equal_range(commandArgs[0]);
+
+		for (Plugin::CommandHandlerMap_t::const_iterator it = commandRange.first; it != commandRange.second; ++it)
+			it->second(playerIt->second, commandArgs, prefix);
+	}
 }
 
 void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
@@ -680,9 +678,35 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 	++killerIt->second->kills;
 }
 
-void Server::HandleOnRoundEnd(const std::vector<std::string>& eventArgs)
+void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
 {
-	HandlePlayerInfo(eventArgs);
+	// onLeave means they left the game. Remove them from the list of players
+	if (eventArgs.size() < 2)
+	{
+		// the server is not ok, disconnect
+		BetteRCon::Internal::g_stdErrLog << "OnLeave did not have at least members: " << eventArgs.size() << '\n';
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	const std::string& playerName = eventArgs[1];
+
+	const PlayerMap_t::const_iterator playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+	{
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Player " << playerName << " left but was not found in the internal player map\n";
+		return;
+	}
+
+	const uint8_t teamId = playerIt->second->teamId;
+	const uint8_t squadId = playerIt->second->squadId;
+
+	// erase them from the team map
+	RemovePlayerFromSquad(playerIt->second, teamId, squadId);
+
+	// remove them from the player map
+	m_players.erase(playerIt);
 }
 
 void Server::HandleOnSpawn(const std::vector<std::string>& eventArgs)
@@ -707,6 +731,54 @@ void Server::HandleOnSpawn(const std::vector<std::string>& eventArgs)
 	}
 
 	playerIt->second->alive = true;
+}
+
+void Server::HandleOnSquadChange(const std::vector<std::string>& eventArgs)
+{
+	// they both do the same thing but can be called in certain circumstances
+	HandleOnTeamChange(eventArgs);
+}
+
+void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
+{
+	// onLeave means they left the game. Remove them from the list of players
+	if (eventArgs.size() != 4)
+	{
+		// the server is not ok, disconnect
+		BetteRCon::Internal::g_stdErrLog << "OnTeamChange did not have 4 members: " << eventArgs.size() << '\n';
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	const std::string& playerName = eventArgs[1];
+	const uint8_t newTeamId = static_cast<uint8_t>(std::stoi(eventArgs[2]));
+	const uint8_t newSquadId = static_cast<uint8_t>(std::stoi(eventArgs[3]));
+
+	// the game likes to tell us after they leave that they switch teams, and this might also be the first we see of them
+	const PlayerMap_t::const_iterator playerIt = m_players.find(playerName);
+	if (playerIt == m_players.end())
+		return;
+
+	const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
+	const uint8_t teamId = pPlayer->teamId;
+	const uint8_t squadId = pPlayer->squadId;
+
+	// they didn't actually change, or we are handling both messages
+	if (newTeamId == teamId &&
+		newSquadId == squadId)
+		return;
+
+	// remove them from their squad
+	RemovePlayerFromSquad(pPlayer, teamId, squadId);
+
+	// add them to the new squad
+	AddPlayerToSquad(pPlayer, newTeamId, newSquadId);
+}
+
+void Server::HandleOnRoundEnd(const std::vector<std::string>& eventArgs)
+{
+	HandlePlayerInfo(eventArgs);
 }
 
 void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
@@ -960,17 +1032,23 @@ void Server::InitializeServer()
 	RegisterPrePluginCallback("player.onAuthenticated",
 		std::bind(&Server::HandleOnAuthenticated,
 			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onChat",
+		std::bind(&Server::HandleOnChat,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onKill",
+		std::bind(&Server::HandleOnKill,
+			this, std::placeholders::_1));
 	RegisterPostPluginCallback("player.onLeave",
 		std::bind(&Server::HandleOnLeave,
 			this, std::placeholders::_1));
-	RegisterPrePluginCallback("player.onTeamChange",
-		std::bind(&Server::HandleOnTeamChange,
+	RegisterPrePluginCallback("player.onSpawn",
+		std::bind(&Server::HandleOnSpawn,
 			this, std::placeholders::_1));
 	RegisterPrePluginCallback("player.onSquadChange",
 		std::bind(&Server::HandleOnSquadChange,
 			this, std::placeholders::_1));
-	RegisterPrePluginCallback("player.onKill",
-		std::bind(&Server::HandleOnKill,
+	RegisterPrePluginCallback("player.onTeamChange",
+		std::bind(&Server::HandleOnTeamChange,
 			this, std::placeholders::_1));
 	RegisterPrePluginCallback("server.onRoundOverPlayers",
 		std::bind(&Server::HandleOnRoundEnd,

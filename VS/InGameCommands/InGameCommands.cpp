@@ -24,14 +24,13 @@ public:
 	using Team_t = BetteRCon::Server::Team;
 
 	InGameCommands(BetteRCon::Server* pServer)
-		: Plugin(pServer),
-		m_chatHandlers({ {"test", std::bind(&InGameCommands::HandleTest, this, std::placeholders::_1, std::placeholders::_2) } })
+		: Plugin(pServer)
 	{
 		// read the player information flatfile database
 		ReadAdminDatabase();
 
-		// listen for chat messages
-		RegisterHandler("player.onChat", std::bind(&InGameCommands::HandleOnChat, this, std::placeholders::_1));
+		// register the test command
+		RegisterCommand("test", std::bind(&InGameCommands::HandleTest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
@@ -67,60 +66,8 @@ public:
 		outFile.close();
 	}
 
-	void HandleOnChat(const std::vector<std::string>& eventMessage)
+	void HandleTest(const std::shared_ptr<PlayerInfo>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
-		const std::string& playerName = eventMessage[1];
-		const std::string& chatMessage = eventMessage[2];
-
-		// make sure it isn't an empty chat message
-		if (chatMessage.empty() == true)
-			return;
-
-		size_t offset = 0;
-		// remove the slash if there is one
-		if (chatMessage[0] == '/')
-			offset = 1;
-
-		// all commands begin with !
-		if (chatMessage[offset] == '!')
-			++offset;
-
-		// split up their message by spaces
-		std::vector<std::string> commandArgs;
-		size_t space = chatMessage.find(' ', offset);
-		if (space == std::string::npos)
-		{
-			commandArgs.emplace_back(chatMessage.substr(offset));
-		}
-		else
-		{
-			while ((space = chatMessage.find(' ', offset)) != std::string::npos)
-			{
-				commandArgs.emplace_back(chatMessage.substr(offset, space - offset));
-				offset = space + 1;
-			}
-		}
-
-		// see if a handler exists for the command
-		const ChatHandlerMap_t::const_iterator chatHandlerIt = m_chatHandlers.find(commandArgs[0]);
-		if (chatHandlerIt == m_chatHandlers.end())
-			return;
-
-		// call the handler
-		chatHandlerIt->second(playerName, commandArgs);
-	}
-
-	void HandleTest(const std::string& playerName, const std::vector<std::string>& args)
-	{
-		const PlayerMap_t& players = GetPlayers();
-		
-		// search for the player
-		const PlayerMap_t::const_iterator playerIt = players.find(playerName);
-		if (playerIt == players.end())
-			return;
-
-		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
-
 		// move them to the other team and squad
 		const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
 
@@ -131,7 +78,6 @@ public:
 	virtual ~InGameCommands() {}
 private:
 	AdminSet_t m_admins;
-	ChatHandlerMap_t m_chatHandlers;
 };
 
 PLUGIN_EXPORT InGameCommands* CreatePlugin(BetteRCon::Server* pServer)

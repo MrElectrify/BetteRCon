@@ -31,8 +31,10 @@ namespace BetteRCon
 	class Plugin
 	{
 	public: 
+		using CommandHandler_t = std::function<void(const std::shared_ptr<Server::PlayerInfo>& pPlayer, const std::vector<std::string>& args, const char prefix)>;
+		using CommandHandlerMap_t = std::unordered_map<std::string, CommandHandler_t>;
 		using EventHandler_t = std::function<void(const std::vector<std::string>& eventWords)>;
-		using HandlerMap_t = std::unordered_map<std::string, EventHandler_t>;
+		using EventHandlerMap_t = std::unordered_multimap<std::string, EventHandler_t>;
 		using Worker_t = asio::io_context;
 
 		// Creates a plugin with the server
@@ -53,8 +55,10 @@ namespace BetteRCon
 		// Retreives whether or not the plugin should be enabled
 		const bool IsEnabled() const { return m_enabled == true; }
 
-		// Retreives all of the event handlers. Used internally by BetteRCon
-		const HandlerMap_t& GetEventHandlers() const { return m_eventHandlers; }
+		// Retrieves all of the command handlers. Used internall by BetteRCon
+		const CommandHandlerMap_t& GetCommandHandlers() const noexcept { return m_commandHandlers; }
+		// Retrieves all of the event handlers. Used internally by BetteRCon
+		const EventHandlerMap_t& GetEventHandlers() const noexcept { return m_eventHandlers; }
 
 		// Registers the desired handler to be called every time an event is fired
 		void RegisterHandler(const std::string& eventName, EventHandler_t&& eventHandler) { m_eventHandlers.emplace(eventName, eventHandler); }
@@ -93,6 +97,7 @@ namespace BetteRCon
 		{ 
 			if (squadId == UINT8_MAX)
 			{
+				// find them a squad
 				const Server::Team& newTeam = GetTeam(teamId);
 
 				constexpr size_t SQUAD_MAX = 5;
@@ -113,10 +118,14 @@ namespace BetteRCon
 
 			m_pServer->MovePlayer(teamId, squadId, pPlayer); 
 		}
+
+		// Registers a command with a given handler
+		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) { m_commandHandlers.emplace(commandName, std::move(commandHandler)); }
 	private:
 		bool m_enabled = false;
 
-		HandlerMap_t m_eventHandlers;
+		CommandHandlerMap_t m_commandHandlers;
+		EventHandlerMap_t m_eventHandlers;
 
 		Server* m_pServer;
 	};
