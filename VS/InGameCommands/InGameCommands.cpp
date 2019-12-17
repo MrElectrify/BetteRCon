@@ -12,38 +12,26 @@
 #include <Windows.h>
 #endif
 
-// Assist allows players to assist the losing team if they are unable to switch manually. ONLY FOR CONQUEST LARGE RIGHT NOW
-class InGameAdmin : public BetteRCon::Plugin
+// A set of in-game commands including admin commands.
+class InGameCommands : public BetteRCon::Plugin
 {
 public:
 	using AdminSet_t = std::unordered_set<std::string>;
 	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::vector<std::string>& args)>>;
 
-	InGameAdmin(BetteRCon::Server* pServer)
+	InGameCommands(BetteRCon::Server* pServer)
 		: Plugin(pServer)
 	{
 		// read the player information flatfile database
 		ReadAdminDatabase();
 
 		// listen for chat messages
-		RegisterHandler("player.onChat", std::bind(&InGameAdmin::HandleOnChat, this, std::placeholders::_1));
+		RegisterHandler("player.onChat", std::bind(&InGameCommands::HandleOnChat, this, std::placeholders::_1));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
-	virtual std::string_view GetPluginName() const { return "InGameAdmin"; }
+	virtual std::string_view GetPluginName() const { return "InGameCommands"; }
 	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
-
-	virtual void Enable()
-	{
-		Plugin::Enable();
-		BetteRCon::Internal::g_stdOutLog << "[InGameAdmin]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	}
-
-	virtual void Disable()
-	{
-		Plugin::Disable();
-		BetteRCon::Internal::g_stdOutLog << "[InGameAdmin]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	}
 
 	void ReadAdminDatabase()
 	{
@@ -108,18 +96,18 @@ public:
 		chatHandlerIt->second(commandArgs);
 	}
 
-	virtual ~InGameAdmin() {}
+	virtual ~InGameCommands() {}
 private:
 	AdminSet_t m_admins;
 	ChatHandlerMap_t m_chatHandlers;
 };
 
-PLUGIN_EXPORT InGameAdmin* CreatePlugin(BetteRCon::Server* pServer)
+PLUGIN_EXPORT InGameCommands* CreatePlugin(BetteRCon::Server* pServer)
 {
-	return new InGameAdmin(pServer);
+	return new InGameCommands(pServer);
 }
 
-PLUGIN_EXPORT void DestroyPlugin(InGameAdmin* pPlugin)
+PLUGIN_EXPORT void DestroyPlugin(InGameCommands* pPlugin)
 {
 	delete pPlugin;
 }
