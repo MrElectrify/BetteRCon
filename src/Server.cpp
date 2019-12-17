@@ -815,7 +815,7 @@ void Server::HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId,
 	if (response[0] != "OK")
 	{
 		// the move failed. move them back to their old team
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to move player: " << pPlayer->name << '\n';
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to move player " << pPlayer->name << ": " << response[0] << '\n';
 
 		// adjust their team and squad internally
 		RemovePlayerFromSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
