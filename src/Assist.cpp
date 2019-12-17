@@ -224,7 +224,7 @@ public:
 
 		const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
 		const float roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : (static_cast<float>(maxScore - minScore) / maxScore)) : 1.f);
-		const float strengthMultiplier = (friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f;
+		const float strengthMultiplier = std::min((friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f, 2.f);
 
 		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
 
