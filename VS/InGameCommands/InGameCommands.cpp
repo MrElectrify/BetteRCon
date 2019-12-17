@@ -17,10 +17,12 @@ class InGameCommands : public BetteRCon::Plugin
 {
 public:
 	using AdminSet_t = std::unordered_set<std::string>;
-	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::vector<std::string>& args)>>;
+	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::string& playerName, const std::vector<std::string>& args)>>;
+	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
 
 	InGameCommands(BetteRCon::Server* pServer)
-		: Plugin(pServer)
+		: Plugin(pServer),
+		m_chatHandlers({ {"test", std::bind(&InGameCommands::HandleTest, this, std::placeholders::_1, std::placeholders::_2) } })
 	{
 		// read the player information flatfile database
 		ReadAdminDatabase();
@@ -64,6 +66,7 @@ public:
 
 	void HandleOnChat(const std::vector<std::string>& eventMessage)
 	{
+		const std::string& playerName = eventMessage[1];
 		const std::string& chatMessage = eventMessage[2];
 
 		// make sure it isn't an empty chat message
@@ -76,8 +79,8 @@ public:
 			offset = 1;
 
 		// all commands begin with !
-		if (chatMessage[offset++] != '!')
-			return;
+		if (chatMessage[offset] == '!')
+			++offset;
 
 		// split up their message by spaces
 		std::vector<std::string> commandArgs;
@@ -101,7 +104,19 @@ public:
 			return;
 
 		// call the handler
-		chatHandlerIt->second(commandArgs);
+		chatHandlerIt->second(playerName, commandArgs);
+	}
+
+	void HandleTest(const std::string& playerName, const std::vector<std::string>& args)
+	{
+		const PlayerMap_t& players = GetPlayers();
+		
+		// search for the player
+		const PlayerMap_t::const_iterator playerIt = players.find(playerName);
+		if (playerIt == players.end())
+			return;
+
+		SendChatMessage("Test", playerIt->second);
 	}
 
 	virtual ~InGameCommands() {}

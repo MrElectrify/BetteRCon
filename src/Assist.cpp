@@ -466,29 +466,6 @@ public:
 			}
 		}
 
-		// see if they would be too powerful
-		const PlayerStrengthMap_t::iterator playerStrengthIt = m_playerStrengthDatabase.find(playerName);
-		if (playerStrengthIt != m_playerStrengthDatabase.end())
-		{
-			PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
-
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
-			const float adjustedEnemyStrength = enemyStrength + playerStrength;
-			const float adjustedFriendlyStrength = friendlyStrength - playerStrength;
-
-			const float adjustedStrengthRatio = (adjustedFriendlyStrength != 0.f) ? adjustedEnemyStrength / adjustedFriendlyStrength : 1.f;
-
-			if (adjustedStrengthRatio > 1.75f)
-			{
-				const uint32_t strengthPctDiff = static_cast<uint32_t>((adjustedStrengthRatio - 1.f) * 100);
-				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%) (" + std::to_string(adjustedEnemyStrength) + ":" + std::to_string(adjustedFriendlyStrength) + ")!\n", pPlayer);
-				return;
-			}
-
-			// add a successful assist
-			++playerStrengthEntry.assists;
-		}
-
 		// they are good. add them to the move queue
 		m_moveQueue.push_back(playerName);
 		m_lastPlayerAssists.emplace(playerName, std::chrono::system_clock::now());
