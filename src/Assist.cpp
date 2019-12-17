@@ -373,7 +373,7 @@ public:
 		}
 
 		// see if it has been long enough
-		constexpr std::chrono::minutes timeBeforeAssist(3);
+		constexpr std::chrono::minutes timeBeforeAssist(0);
 
 		std::chrono::seconds timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)
@@ -386,8 +386,8 @@ public:
 		const uint8_t friendlyTeam = pPlayer->teamId;
 
 		// see if their team is winning
-		const int32_t enemyScore = m_lastScores[enemyTeam];
-		const int32_t friendlyScore = m_lastScores[friendlyTeam];
+		const int32_t enemyScore = m_lastScores[enemyTeam - 1];
+		const int32_t friendlyScore = m_lastScores[friendlyTeam - 1];
 
 		const ServerInfo& serverInfo = GetServerInfo();
 		const int32_t maxScore = ((serverInfo.m_gameMode == "ConquestLarge0") ? 800 : 400) * m_gameModeCounter;
@@ -400,8 +400,8 @@ public:
 			return;
 		}
 
-		const int32_t enemyScoreDifference = m_lastScoreDiffs[enemyTeam];
-		const int32_t friendlyScoreDifference = m_lastScoreDiffs[friendlyTeam];
+		const int32_t enemyScoreDifference = m_lastScoreDiffs[enemyTeam - 1];
+		const int32_t friendlyScoreDifference = m_lastScoreDiffs[friendlyTeam - 1];
 
 		if (enemyScore > friendlyScore)
 		{
