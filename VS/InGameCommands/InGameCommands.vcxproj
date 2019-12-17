@@ -18,6 +18,9 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\InGameCommands.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{59331883-F66F-45C3-B10A-709069ED8C5C}</ProjectGuid>
@@ -186,9 +189,6 @@ mkdir $(SolutionDir)BetteRConConsole\plugins
 copy /y $(SolutionDir)plugins\InGameCommands.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="InGameCommands.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
