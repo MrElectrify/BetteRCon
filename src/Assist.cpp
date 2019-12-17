@@ -226,6 +226,8 @@ public:
 		const float roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : (static_cast<float>(maxScore - minScore) / maxScore)) : 1.f);
 		const float strengthMultiplier = std::min((friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f, 2.f);
 
+		BetteRCon::Internal::g_stdOutLog << "StrengthMultiplier for team " << static_cast<uint16_t>(friendlyTeam) << ": " << strengthMultiplier << '\n';
+
 		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
 
 		// friendly stats for comparison
