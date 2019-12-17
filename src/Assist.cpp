@@ -42,8 +42,8 @@ public:
 		// read the player information flatfile database
 		ReadPlayerDatabase();
 
-		// we want to listen for chat messages
-		RegisterHandler("player.onChat", std::bind(&Assist::HandlePlayerChat, this, std::placeholders::_1));
+		// listen for the assist command
+		RegisterCommand("assist", std::bind(&Assist::HandleAssist, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// don't let them get away so easily
 		RegisterHandler("player.onLeave", std::bind(&Assist::HandlePlayerLeave, this, std::placeholders::_1));
@@ -303,28 +303,8 @@ public:
 		}
 	}
 
-	void HandlePlayerChat(const std::vector<std::string>& eventArgs)
+	void HandleAssist(const std::shared_ptr<PlayerInfo>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
-		const std::string& playerName = eventArgs[1];
-		const std::string& chatMessage = eventArgs[2];
-
-		// they sent more than just the assist request
-		if (chatMessage.size() > 8)
-			return;
-
-		// they didn't send us an assist request
-		if (chatMessage.find("!assist") == std::string::npos)
-			return;
-
-		const PlayerMap_t& players = GetPlayers();
-
-		// see if they are a player
-		const PlayerMap_t::const_iterator playerIt = players.find(playerName);
-		if (playerIt == players.end())
-			return;
-
-		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
-
 		if (pPlayer->teamId == 0 ||
 			pPlayer->type != 0)
 		{
@@ -395,6 +375,7 @@ public:
 		}
 
 		const size_t numTeams = GetTeams().size();
+		const PlayerMap_t& players = GetPlayers();
 
 		std::vector<float> playerStrengths(numTeams);
 
@@ -439,7 +420,7 @@ public:
 		// see if they assisted within the last 5 minutes
 		constexpr std::chrono::minutes assistTimeout(5);
 
-		const PlayerAssistMap_t::iterator lastAssistIt = m_lastPlayerAssists.find(playerName);
+		const PlayerAssistMap_t::iterator lastAssistIt = m_lastPlayerAssists.find(pPlayer->name);
 		if (lastAssistIt != m_lastPlayerAssists.end())
 		{
 			if (std::chrono::system_clock::now() < (lastAssistIt->second + assistTimeout))
@@ -450,7 +431,7 @@ public:
 		}
 
 		// see if they would be too powerful
-		const PlayerStrengthMap_t::iterator playerStrengthIt = m_playerStrengthDatabase.find(playerName);
+		const PlayerStrengthMap_t::iterator playerStrengthIt = m_playerStrengthDatabase.find(pPlayer->name);
 		if (playerStrengthIt != m_playerStrengthDatabase.end())
 		{
 			PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
@@ -473,8 +454,8 @@ public:
 		}
 
 		// they are good. add them to the move queue
-		m_moveQueue.push_back(playerName);
-		m_lastPlayerAssists.emplace(playerName, std::chrono::system_clock::now());
+		m_moveQueue.push_back(pPlayer->name);
+		m_lastPlayerAssists.emplace(pPlayer->name, std::chrono::system_clock::now());
 		SendChatMessage("[Assist] Your assist request has been accepted and you are number " + std::to_string(m_moveQueue.size()) + " in queue!", pPlayer);
 
 		// try to process the queue now

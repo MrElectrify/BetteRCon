@@ -209,12 +209,13 @@ namespace BetteRCon
 		void HandlePlayerInfo(const std::vector<std::string>& playerInfo);
 
 		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
-		void HandleOnLeave(const std::vector<std::string>& eventArgs);
-		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
-		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
+		void HandleOnChat(const std::vector<std::string>& eventArgs);
 		void HandleOnKill(const std::vector<std::string>& eventArgs);
-		void HandleOnRoundEnd(const std::vector<std::string>& eventArgs);
+		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnSpawn(const std::vector<std::string>& eventArgs);
+		void HandleOnSquadChange(const std::vector<std::string>& eventArgs);
+		void HandleOnTeamChange(const std::vector<std::string>& eventArgs);
+		void HandleOnRoundEnd(const std::vector<std::string>& eventArgs);
 		void HandlePunkbusterMessage(const std::vector<std::string>& eventArgs);
 
 		void HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId, const std::shared_ptr<PlayerInfo>& pPlayer, const ErrorCode_t& ec, const std::vector<std::string>& response);
