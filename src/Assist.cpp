@@ -275,8 +275,6 @@ public:
 
 		while (m_moveQueue.empty() == false)
 		{
-			BetteRCon::Internal::g_stdOutLog << "Queue not empty\n";
-
 			const std::string& firstPlayer = m_moveQueue.front();
 
 			// find the player in our player list
@@ -314,8 +312,6 @@ public:
 					break;
 				}
 			}
-
-			BetteRCon::Internal::g_stdOutLog << "Moving player " << pPlayer->name << '\n';
 
 			// we are good to switch them. let's do it
 			MovePlayer(newTeamId, squadId, pPlayer);
