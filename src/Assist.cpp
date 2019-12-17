@@ -287,10 +287,10 @@ public:
 
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
-			const uint8_t newTeam = (pPlayer->teamId % 2) + 1;
+			const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
 
 			// make sure the enemy team has space
-			uint32_t teamSize = GetTeam(newTeam).playerCount;
+			uint32_t teamSize = GetTeam(newTeamId).playerCount;
 
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
@@ -300,11 +300,11 @@ public:
 			uint8_t squadId = 0;
 
 			// find their team
-			const Team_t& currentTeam = GetTeam(pPlayer->teamId);
+			const Team_t& newTeam = GetTeam(newTeamId);
 			
 			constexpr size_t SQUAD_MAX = 5;
 
-			for (const SquadMap_t::value_type& squad : currentTeam.squads)
+			for (const SquadMap_t::value_type& squad : newTeam.squads)
 			{
 				if (squad.second.size() < SQUAD_MAX)
 				{
@@ -314,7 +314,7 @@ public:
 			}
 
 			// we are good to switch them. let's do it
-			MovePlayer(newTeam, squadId, pPlayer);
+			MovePlayer(newTeamId, squadId, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
