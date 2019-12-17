@@ -235,6 +235,8 @@ namespace BetteRCon
 		Connection_t m_connection;
 		std::thread m_thread;
 
+		std::mutex m_connectionMutex;
+
 		EventCallbackMap_t m_prePluginEventCallbacks;
 		EventCallbackMap_t m_postPluginEventCallbacks;
 

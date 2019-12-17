@@ -84,15 +84,18 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 		return callback(asio::error::make_error_code(asio::error::not_connected), nullptr);
 
 	// serialize the data into our buffer
-	packet.Serialize(m_outgoingBuf);
+	std::vector<char> sendBuf;
+	packet.Serialize(sendBuf);
+
+	// insert the buffer into the queue
+	m_sendQueue.emplace(std::move(sendBuf));
 
 	// save the callback
 	m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
 
-	// write the data to the socket
-	asio::async_write(m_socket, asio::buffer(m_outgoingBuf),
-		std::bind(&Connection::HandleWrite, this,
-			std::placeholders::_1, std::placeholders::_2));
+	// ours is the only one. otherwise, a callback will handle sending our data
+	if (m_sendQueue.size() == 1)
+		SendUnsentBuffers();
 }
 
 void Connection::CloseConnection(const ErrorCode_t& reason)
@@ -227,4 +230,22 @@ void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferr
 			CloseConnection(ec);
 		}
 	}
+
+	// pop the buffer, we don't need it any more
+	m_sendQueue.pop();
+
+	// send more packets if there are some lined up
+	if (m_sendQueue.empty() == false)
+		SendUnsentBuffers();
+}
+
+void Connection::SendUnsentBuffers()
+{
+	// get the first buffer
+	const std::vector<char>& frontBuf = m_sendQueue.front();
+
+	// there is no send in progress
+	asio::async_write(m_socket, asio::buffer(frontBuf),
+		std::bind(&Connection::HandleWrite, this,
+			std::placeholders::_1, std::placeholders::_2));
 }

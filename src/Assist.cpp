@@ -69,7 +69,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "Assist"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.2.0"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.2.2"; }
 
 	virtual void Enable()
 	{
@@ -236,7 +236,7 @@ public:
 		const float totalTime = (roundTime + playerStrengthEntry.roundSamples);
 
 		const float weightedTotalRelativeKDR = playerStrengthEntry.relativeKDR * playerStrengthEntry.roundSamples;
-		const float roundKD = pPlayer->kills / ((pPlayer->deaths != 0) ? pPlayer->deaths : 1);
+		const float roundKD = (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : pPlayer->kills;
 		const float roundRelativeKDR = (friendlyAvgKDR != 0.f) ? roundKD / friendlyAvgKDR : 1.f;
 		const float weightedRoundRelativeKDR = roundRelativeKDR * roundTime * strengthMultiplier;
 
@@ -285,34 +285,17 @@ public:
 
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
-			const uint8_t newTeam = (pPlayer->teamId % 2) + 1;
+			const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
 
 			// make sure the enemy team has space
-			uint32_t teamSize = GetTeam(newTeam).playerCount;
+			uint32_t teamSize = GetTeam(newTeamId).playerCount;
 
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
-
-			// let's play nice and find them a random squad
-			uint8_t squadId = 0;
-
-			// find their team
-			const Team_t& currentTeam = GetTeam(pPlayer->teamId);
 			
-			constexpr size_t SQUAD_MAX = 5;
-
-			for (const SquadMap_t::value_type& squad : currentTeam.squads)
-			{
-				if (squad.second.size() < SQUAD_MAX)
-				{
-					squadId = squad.first;
-					break;
-				}
-			}
-
 			// we are good to switch them. let's do it
-			MovePlayer(newTeam, squadId, pPlayer);
+			MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
@@ -481,7 +464,7 @@ public:
 			if (adjustedStrengthRatio > 1.75f)
 			{
 				const uint32_t strengthPctDiff = static_cast<uint32_t>((adjustedStrengthRatio - 1.f) * 100);
-				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%)!\n", pPlayer);
+				SendChatMessage("[Assist] You would make the other team " + std::to_string(strengthPctDiff) + "% stronger than your team (>75%) (" + std::to_string(adjustedEnemyStrength) + ":" + std::to_string(adjustedFriendlyStrength) + ")!\n", pPlayer);
 				return;
 			}
 
@@ -545,10 +528,10 @@ public:
 			const std::chrono::system_clock::duration timeSinceLevelStart = std::chrono::system_clock::now() - m_levelStart;
 
 			const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
-			const float roundTime = (maxScore != 0) ? levelAttendance * ((maxScore - minScore) / maxScore) : 1.f;
+			const float roundTime = (maxScore != 0) ? levelAttendance * ((static_cast<float>(maxScore) - minScore) / maxScore) : 1.f;
 
 			// add team telemetry
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : pPlayer->kills;
 			playerKPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->kills / roundTime : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (roundTime != 0.f) ? pPlayer->score / roundTime : 0.f;
 
@@ -587,13 +570,6 @@ public:
 
 	void HandleRoundOver(const std::vector<std::string>& eventArgs)
 	{
-		if (eventArgs.size() != 2)
-		{
-			// there was a strange error. just ignore the message
-			BetteRCon::Internal::g_stdOutLog << "[Assist] Received Malformed RoundOver\n";
-			return;
-		}
-
 		m_lastWinningTeam = static_cast<uint8_t>(std::stoi(eventArgs[1]));
 	}
 
@@ -626,7 +602,7 @@ public:
 			const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
 
 			// add team telemetry
-			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : 0.f;
+			playerKDTotals[pPlayer->teamId - 1] += (pPlayer->deaths != 0) ? (static_cast<float>(pPlayer->kills) / pPlayer->deaths) : pPlayer->kills;
 			playerKPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->kills / levelAttendance : 0.f;
 			playerSPRTotals[pPlayer->teamId - 1] += (levelAttendance != 0) ? pPlayer->score / levelAttendance : 0.f;
 

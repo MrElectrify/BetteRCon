@@ -162,6 +162,7 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 	Packet_t packet(command, s_lastSequence++);
 
 	// send the packet
+	std::lock_guard connectionLock(m_connectionMutex);
 	m_connection.SendPacket(packet, [ recvCallback{ std::move(recvCallback) }](const Connection_t::ErrorCode_t& ec, std::shared_ptr<Packet_t> packet)
 	{
 		// make sure we don't have an error
@@ -235,13 +236,16 @@ void Server::ScheduleAction(TimedAction_t&& timedAction, const size_t millisecon
 
 void Server::MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::shared_ptr<PlayerInfo>& pPlayer)
 {
-	// send the command
-	SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" },
-		std::bind(&Server::HandleMovePlayer, this, teamId, squadId, pPlayer, std::placeholders::_1, std::placeholders::_2));
+	const uint8_t oldTeamId = pPlayer->teamId;
+	const uint8_t oldSquadId = pPlayer->squadId;
 
 	// assume it worked, remove them from their old team/squad and add them to the new one
-	RemovePlayerFromSquad(pPlayer, teamId, squadId);
+	RemovePlayerFromSquad(pPlayer, oldTeamId, oldSquadId);
 	AddPlayerToSquad(pPlayer, teamId, squadId);
+
+	// send the command
+	SendCommand({ "admin.movePlayer", pPlayer->name, std::to_string(teamId), std::to_string(squadId), "true" },
+		std::bind(&Server::HandleMovePlayer, this, oldTeamId, oldSquadId, pPlayer, std::placeholders::_1, std::placeholders::_2));
 }
 
 Server::~Server()
@@ -293,6 +297,7 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 	const Packet_t packet(response, sequence, true);
 
 	// send the packet
+	std::lock_guard connectionLock(m_connectionMutex);
 	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
 }
 
@@ -480,11 +485,13 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			std::string playerName = playerInfo.at(offset + numVar * i);
 			std::shared_ptr<PlayerInfo> pPlayer;
 
+			bool firstTime = false;
 			const PlayerMap_t::const_iterator playerIt = m_players.find(playerName);
 			if (playerIt == m_players.end())
 			{
 				pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
 				pPlayer->firstSeen = std::chrono::system_clock::now();
+				firstTime = true;
 			}
 			else
 				pPlayer = playerIt->second;
@@ -501,8 +508,9 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
 			pPlayer->seenThisCheck = true;
 
-			// add the player to their squad
-			AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
+			if (firstTime == true)
+			// add the player to their squad if they are new
+				AddPlayerToSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);
 		}
 	}
 	catch (const std::exception& e)
@@ -815,7 +823,7 @@ void Server::HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId,
 	if (response[0] != "OK")
 	{
 		// the move failed. move them back to their old team
-		BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to move player: " << pPlayer->name << '\n';
+		BetteRCon::Internal::g_stdErrLog << "ERROR: Failed to move player " << pPlayer->name << ": " << response[0] << '\n';
 
 		// adjust their team and squad internally
 		RemovePlayerFromSquad(pPlayer, pPlayer->teamId, pPlayer->squadId);

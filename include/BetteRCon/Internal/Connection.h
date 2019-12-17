@@ -16,8 +16,9 @@
 // STL
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
+#include <queue>
+#include <unordered_map>
 #include <vector>
 
 namespace BetteRCon
@@ -41,6 +42,9 @@ namespace BetteRCon
 
 			// If no error occurred (this is, !ec), the packet is guaranteed to be non-nullptr, and have at least one word
 			using RecvCallback_t = std::function<void(const ErrorCode_t&, std::shared_ptr<Packet>)>;
+			using RecvCallbackMap_t = std::unordered_map<int32_t, RecvCallback_t>;
+
+			using SendQueue_t = std::queue<std::vector<char>>;
 
 			// Creates a server connection
 			Connection(Worker_t& worker, RecvCallback_t&& eventCallback);
@@ -72,15 +76,18 @@ namespace BetteRCon
 			void HandleTimeout(const ErrorCode_t& ec);
 			void HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferred);
 
+			void SendUnsentBuffers();
+
 			ErrorCode_t m_lastErrorCode;
 
 			bool m_connected;
 
-			std::vector<char> m_outgoingBuf;
 			std::vector<char> m_incomingBuf;
 
 			RecvCallback_t m_eventCallback;
-			std::map<int32_t, RecvCallback_t> m_recvCallbacks;
+			RecvCallbackMap_t m_recvCallbacks;
+
+			SendQueue_t m_sendQueue;
 
 			Socket_t m_socket;
 
