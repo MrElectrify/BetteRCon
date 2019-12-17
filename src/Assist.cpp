@@ -293,28 +293,9 @@ public:
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
-
-			// let's play nice and find them a random squad
-			uint8_t squadId = 0;
-
-			// find their team
-			const Team_t& newTeam = GetTeam(newTeamId);
 			
-			constexpr size_t SQUAD_MAX = 5;
-
-			for (const SquadMap_t::value_type& squad : newTeam.squads)
-			{
-				if (squad.second.size() < SQUAD_MAX)
-				{
-					squadId = squad.first;
-					break;
-				}
-			}
-
-			BetteRCon::Internal::g_stdOutLog << "Attempting to move player " << pPlayer->name << " to " << static_cast<uint16_t>(newTeamId) << ':' << static_cast<uint16_t>(squadId) << '\n';
-
 			// we are good to switch them. let's do it
-			MovePlayer(newTeamId, squadId, pPlayer);
+			MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 
 			SendChatMessage("[Assist] Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
 
@@ -367,7 +348,7 @@ public:
 		}
 
 		// see if it has been long enough
-		constexpr std::chrono::minutes timeBeforeAssist(0);
+		constexpr std::chrono::minutes timeBeforeAssist(3);
 
 		std::chrono::seconds timeLeft = std::chrono::duration_cast<std::chrono::seconds>((m_levelStart + timeBeforeAssist) - std::chrono::system_clock::now());
 		if (timeLeft.count() > 0)

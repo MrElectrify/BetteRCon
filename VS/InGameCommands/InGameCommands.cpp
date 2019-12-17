@@ -123,25 +123,9 @@ public:
 
 		// move them to the other team and squad
 		const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
-		// let's play nice and find them a random squad
-		uint8_t squadId = 0;
-
-		// find their team
-		const Team_t& newTeam = GetTeam(newTeamId);
-
-		constexpr size_t SQUAD_MAX = 5;
-
-		for (const SquadMap_t::value_type& squad : newTeam.squads)
-		{
-			if (squad.second.size() < SQUAD_MAX)
-			{
-				squadId = squad.first;
-				break;
-			}
-		}
 
 		// we are good to switch them. let's do it
-		MovePlayer(newTeamId, squadId, pPlayer);
+		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 	}
 
 	virtual ~InGameCommands() {}
