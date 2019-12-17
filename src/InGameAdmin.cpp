@@ -16,7 +16,26 @@
 class InGameAdmin : public BetteRCon::Plugin
 {
 public:
-	using AdminSet_t = std::unordered_set<std::string>;
+	struct Admin
+	{
+		std::string name;
+		std::string guid;
+
+		bool operator==(const Admin& rhs) const
+		{
+			return name == rhs.name &&
+				guid == rhs.guid;
+		}
+	};
+	class AdminHash
+	{
+	public:
+		size_t operator()(const Admin& val) const
+		{
+			return std::hash<std::string>()(val.name) ^ std::hash<std::string>()(val.guid);
+		}
+	};
+	using AdminSet_t = std::unordered_set<Admin, AdminHash>;
 	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::string& playerName, const std::vector<std::string>& args)>>;
 	using PlayerInfo = BetteRCon::Server::PlayerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
@@ -37,6 +56,10 @@ public:
 	virtual std::string_view GetPluginName() const { return "InGameAdmin"; }
 	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
 
+	virtual void Enable() { Plugin::Enable(); ReadAdminDatabase(); }
+
+	virtual void Disable() { Plugin::Disable(); WriteAdminDatabase(); }
+
 	void ReadAdminDatabase()
 	{
 		// try to open the database
@@ -45,9 +68,22 @@ public:
 			return;
 
 		// read each admin
-		std::string adminName;
-		while (inFile >> adminName)
-			m_admins.emplace(std::move(adminName));
+		std::string adminLine;
+		size_t line = 0;
+		while (std::getline(inFile, adminLine))
+		{
+			const size_t comma = adminLine.find(',');
+			if (comma == std::string::npos)
+			{
+				BetteRCon::Internal::g_stdErrLog << "Failed to find comma for admin on line " << line << '\n';
+				return;
+			}
+
+			// split the name and guid up, and add it to our admin list
+			m_admins.emplace(Admin{ adminLine.substr(0, comma), adminLine.substr(comma + 1) });
+
+			++line;
+		}
 
 		inFile.close();
 	}
@@ -61,7 +97,7 @@ public:
 
 		// write each admin
 		for (const AdminSet_t::value_type& adminName : m_admins)
-			outFile << adminName;
+			outFile << adminName.name << ',' << adminName.guid;
 
 		outFile.close();
 	}
