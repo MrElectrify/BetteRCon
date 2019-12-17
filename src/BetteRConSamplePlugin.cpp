@@ -48,13 +48,13 @@ public:
 	virtual void Enable()
 	{
 		Plugin::Enable();
-		BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		// do anything on enable here. this function doesn't need to be overloaded, however
 	}
 
 	virtual void Disable()
 	{
 		Plugin::Disable();
-		BetteRCon::Internal::g_stdOutLog << "[Sample Plugin]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
+		// do anything on disable here. this function doesn't need to be overloaded, however
 	}
 
 	void HandleJoin(const std::vector<std::string>& eventWords)

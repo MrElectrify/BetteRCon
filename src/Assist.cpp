@@ -131,14 +131,6 @@ public:
 
 			m_isNotOfficial = response[1] != "OFFICIAL";
 		});
-
-		BetteRCon::Internal::g_stdOutLog << "[Assist]: Enabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
-	}
-
-	virtual void Disable()
-	{
-		Plugin::Disable();
-		BetteRCon::Internal::g_stdOutLog << "[Assist]: Disabled " << GetPluginName() << " version " << GetPluginVersion() << " by " << GetPluginAuthor() << '\n';
 	}
 
 	void ReadPlayerDatabase()
