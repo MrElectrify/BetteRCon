@@ -133,6 +133,8 @@ public:
 		});
 	}
 
+	virtual ~Assist() {}
+private:
 	void ReadPlayerDatabase()
 	{
 		// try to open the database
@@ -290,14 +292,15 @@ public:
 			// make sure the enemy team has space
 			uint32_t teamSize = GetTeam(newTeamId).playerCount;
 
+			/// TODO: Account for commanders
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
-			
+
 			// we are good to switch them. let's do it
 			MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 
-			SendChatMessage("Thanks for assisting the losing team, "+ pPlayer->name + "!\n", pPlayer);
+			SendChatMessage("Thanks for assisting the losing team, " + pPlayer->name + "!\n", pPlayer);
 
 			m_moveQueue.pop_front();
 		}
@@ -667,7 +670,7 @@ public:
 		const std::string& playerName = eventArgs[1];
 
 		const MoveQueue_t::iterator playerQueueIt = std::find(m_moveQueue.begin(), m_moveQueue.end(), playerName);
-		
+
 		// they are not in the move queue, ignore them
 		if (playerQueueIt == m_moveQueue.end())
 			return;
@@ -687,8 +690,6 @@ public:
 		SendChatMessage("You have been removed from the queue because you manually switched. Thanks for helping the losing team!", playerIt->second);
 	}
 
-	virtual ~Assist() {}
-private:
 	// scores
 	std::vector<int32_t> m_lastScores;
 	std::vector<int32_t> m_lastScoreDiffs;
