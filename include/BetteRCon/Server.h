@@ -88,7 +88,13 @@ namespace BetteRCon
 			uint32_t score = 0;
 			uint8_t rank = 0;
 			uint16_t ping = 0;
-			uint16_t type = 0;
+			enum TYPE
+			{
+				TYPE_Player,
+				TYPE_Spectator,
+				TYPE_Commander,
+				TYPE_MobileCommander
+			} type = TYPE_Player;
 			std::string pbGuid;
 			std::string ipAddress;
 			uint16_t port = 0;
@@ -124,6 +130,7 @@ namespace BetteRCon
 		{
 			SquadMap_t squads;
 			uint32_t playerCount = 0;
+			uint32_t commanderCount = 0;
 		};
 		using TeamMap_t = std::unordered_map<uint8_t, Team>;
 		using PlayerInfoCallback_t = std::function<void(const PlayerMap_t& players, const TeamMap_t& teams)>;

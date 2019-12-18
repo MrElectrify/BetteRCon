@@ -177,8 +177,10 @@ private:
 			const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
 
 			// see if the enemy team has space
-			const uint8_t enemyTeamId = (pPlayer->teamId % 2) + 1;
-			const uint32_t teamSize = GetTeams().at(enemyTeamId).playerCount;
+			const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
+			
+			const Team_t& newTeam = GetTeam(newTeamId);
+			const uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
 
 			/// TODO: Account for commanders
 			// try again later
@@ -186,7 +188,7 @@ private:
 				return;
 
 			// we can move them, send it
-			MovePlayer(enemyTeamId, UINT8_MAX, pPlayer);
+			MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 
 			// see if the player who initiated the move is still around
 			const PlayerMap_t::const_iterator requestorPlayerIt = players.find(frontPlayerPair.first);

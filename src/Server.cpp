@@ -505,7 +505,7 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
 			pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
 			pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
-			pPlayer->type = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+			pPlayer->type = static_cast<PlayerInfo::TYPE>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
 			pPlayer->seenThisCheck = true;
 
 			if (firstTime == true)
@@ -924,6 +924,10 @@ void Server::AddPlayerToSquad(const std::shared_ptr<PlayerInfo>& pPlayer, const 
 	// increment the team playerCount
 	++teamIt->second.playerCount;
 
+	// if they are a commander, increment the count
+	if (pPlayer->type == PlayerInfo::TYPE_Commander)
+		++teamIt->second.commanderCount;
+
 	squadIt->second.emplace(pPlayer->name, pPlayer);
 }
 
@@ -960,6 +964,10 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 
 	// decrement the team's playercount
 	--teamIt->second.playerCount;
+
+	// if they are commander, decrement the team's commander count
+	if (pPlayer->type == PlayerInfo::TYPE_Commander)
+		--teamIt->second.playerCount;
 
 	// erase the team if it is empty
 	if (teamIt->second.squads.empty() == true)

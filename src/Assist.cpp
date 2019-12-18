@@ -288,11 +288,11 @@ private:
 			const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
 			const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
+			const Team_t& newTeam = GetTeam(newTeamId);
 
 			// make sure the enemy team has space
-			uint32_t teamSize = GetTeam(newTeamId).playerCount;
+			uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
 
-			/// TODO: Account for commanders
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;
