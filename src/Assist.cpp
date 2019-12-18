@@ -292,6 +292,7 @@ private:
 			// make sure the enemy team has space
 			uint32_t teamSize = GetTeam(newTeamId).playerCount;
 
+			/// TODO: Account for commanders
 			if (teamSize >= maxTeamSize)
 				// there is not enough space. wait until the next time around
 				break;

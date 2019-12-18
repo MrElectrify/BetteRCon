@@ -180,6 +180,7 @@ private:
 			const uint8_t enemyTeamId = (pPlayer->teamId % 2) + 1;
 			const uint32_t teamSize = GetTeams().at(enemyTeamId).playerCount;
 
+			/// TODO: Account for commanders
 			// try again later
 			if (teamSize >= maxTeamSize)
 				return;
