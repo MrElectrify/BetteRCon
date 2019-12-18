@@ -395,7 +395,7 @@ public:
 
 			const PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -436,7 +436,7 @@ public:
 		{
 			PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 			const float adjustedEnemyStrength = enemyStrength + playerStrength;
 			const float adjustedFriendlyStrength = friendlyStrength - playerStrength;
 
@@ -523,7 +523,7 @@ public:
 
 			const PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -594,7 +594,7 @@ public:
 
 			const PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
