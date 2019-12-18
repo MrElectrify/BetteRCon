@@ -600,6 +600,8 @@ void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 		prefix = chatMessage[offset];
 		++offset;
 	}
+	else if (chatMessage[0] != '/')
+		return;
 
 	// split up their message by spaces
 	std::vector<std::string> commandArgs;
