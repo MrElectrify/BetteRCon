@@ -37,7 +37,7 @@ public:
 	};
 	using AdminSet_t = std::unordered_set<Admin, AdminHash>;
 	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::string& playerName, const std::vector<std::string>& args)>>;
-	using PlayerInfo = BetteRCon::Server::PlayerInfo;
+	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
 	using SquadMap_t = BetteRCon::Server::SquadMap_t;
 	using Team_t = BetteRCon::Server::Team;
@@ -49,7 +49,7 @@ public:
 		ReadAdminDatabase();
 
 		// register the test command
-		RegisterCommand("test", std::bind(&InGameAdmin::HandleTest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("move", std::bind(&InGameAdmin::HandleMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
@@ -102,15 +102,9 @@ public:
 		outFile.close();
 	}
 
-	void HandleTest(const std::shared_ptr<PlayerInfo>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	void HandleMove(const std::shared_ptr<PlayerInfo_t> pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
-		// move them to the other team and squad
-		const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
 
-		// we are good to switch them. let's do it
-		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
-
-		SendChatMessage(std::string("Prefix: ") + prefix, pPlayer);
 	}
 
 	virtual ~InGameAdmin() {}
