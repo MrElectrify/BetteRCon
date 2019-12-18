@@ -610,11 +610,12 @@ void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 	}
 	else
 	{
-		while ((space = chatMessage.find(' ', offset)) != std::string::npos)
+		do
 		{
 			commandArgs.emplace_back(chatMessage.substr(offset, space - offset));
 			offset = space + 1;
-		}
+		} while ((space = chatMessage.find(' ', offset)) != std::string::npos);
+		commandArgs.emplace_back(chatMessage.substr(offset));
 	}
 
 	// call each plugin's command handler
