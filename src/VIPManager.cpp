@@ -9,6 +9,12 @@
 class VIPManager : public BetteRCon::Plugin
 {
 public:
+	struct VIP
+	{
+		std::string name;
+		std::string eaguid;
+		std::chrono::system_clock::time_point expiry;
+	};
 	VIPManager(BetteRCon::Server* pServer)
 		: Plugin(pServer)
 	{
