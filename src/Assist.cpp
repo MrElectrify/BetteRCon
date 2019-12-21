@@ -260,6 +260,15 @@ private:
 		const float roundWinLossRatio = 1.f * win;
 		const float weightedRoundWinLossRatio = roundWinLossRatio * roundTime;
 
+		if (playerStrengthEntry.relativeKDR > 100.f ||
+			playerStrengthEntry.relativeKPR > 100.f ||
+			playerStrengthEntry.relativeSPR > 100.f)
+#ifdef _WIN32
+			__debugbreak();
+#elif __linux__
+			raise(SIGTRAP);
+#endif
+
 		playerStrengthEntry.winLossRatio = (totalTime != 0.f) ? (weightedTotalWL + weightedRoundWinLossRatio) / totalTime : 0.f;
 
 		playerStrengthEntry.roundSamples += roundTime;
