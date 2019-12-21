@@ -41,12 +41,14 @@ public:
 		ReadAdminDatabase();
 
 		// register commands
+		RegisterCommand("fmove", std::bind(&InGameAdmin::HandleForceMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("move", std::bind(&InGameAdmin::HandleMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("no", std::bind(&InGameAdmin::HandleNo, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("yes", std::bind(&InGameAdmin::HandleYes, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register handlers
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
+		RegisterHandler("player.onTeamChange", std::bind(&InGameAdmin::HandleOnTeamSwitch, this, std::placeholders::_1));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
@@ -152,7 +154,7 @@ private:
 	void ProcessMoveQueue()
 	{
 		// check if there are any players in the queue
-		if (m_moveQueue.empty() == false)
+		while (m_moveQueue.empty() == false)
 		{
 			const std::pair<std::string, std::string>& frontPlayerPair = m_moveQueue.front();
 
@@ -162,12 +164,12 @@ private:
 			if (frontPlayerIt == players.end())
 			{
 				m_moveQueue.erase(m_moveQueue.begin());
-				return;
+				continue;
 			}
 
 			const std::shared_ptr<PlayerInfo_t>& pPlayer = frontPlayerIt->second;
 
-			// this is a passive move queue, make sure they are not alive
+			// this is a passive move queue, make sure they are not alive. skip the rest of the queue because they are alive
 			if (pPlayer->alive == true)
 				return;
 
@@ -182,7 +184,6 @@ private:
 			const Team_t& newTeam = GetTeam(newTeamId);
 			const uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
 
-			/// TODO: Account for commanders
 			// try again later
 			if (teamSize >= maxTeamSize)
 				return;
@@ -204,6 +205,56 @@ private:
 		}
 	}
 
+	void ProcessForceMoveQueue()
+	{
+		// check if there are any players in the queue
+		while (m_forceMoveQueue.empty() == false)
+		{
+			const std::pair<std::string, std::string>& frontPlayerPair = m_forceMoveQueue.front();
+
+			// search for the first player in the queue
+			const PlayerMap_t& players = GetPlayers();
+			const PlayerMap_t::const_iterator frontPlayerIt = players.find(frontPlayerPair.second);
+			if (frontPlayerIt == players.end())
+			{
+				m_moveQueue.erase(m_moveQueue.begin());
+				continue;
+			}
+
+			const std::shared_ptr<PlayerInfo_t>& pPlayer = frontPlayerIt->second;
+
+			const ServerInfo_t& serverInfo = GetServerInfo();
+			const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
+
+			const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
+
+			// see if the enemy team has space
+			const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
+
+			const Team_t& newTeam = GetTeam(newTeamId);
+			const uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
+
+			// try again later
+			if (teamSize >= maxTeamSize)
+				return;
+
+			// we can move them, send it
+			MovePlayer(newTeamId, UINT8_MAX, pPlayer);
+
+			// see if the player who initiated the move is still around
+			const PlayerMap_t::const_iterator requestorPlayerIt = players.find(frontPlayerPair.first);
+			if (requestorPlayerIt != players.end())
+			{
+				SendChatMessage("Successfully force moved player " + frontPlayerPair.second, requestorPlayerIt->second);
+			}
+
+			SendChatMessage("You were force moved by " + frontPlayerPair.first, pPlayer);
+
+			// remove the player from the queue
+			m_forceMoveQueue.erase(m_forceMoveQueue.begin());
+		}
+	}
+
 	void HandleOnKill(const std::vector<std::string>& eventArgs)
 	{
 		// process the queue
@@ -212,36 +263,107 @@ private:
 
 	void HandleOnLeave(const std::vector<std::string>& eventArgs)
 	{
-		// somebody left, see if we can move players
+		// a spot opened up on a team. see if anything in the queue is there
 		ProcessMoveQueue();
+		ProcessForceMoveQueue();
 	}
 
 	void HandleOnTeamSwitch(const std::vector<std::string>& eventArgs)
 	{
 		const std::string& player = eventArgs[1];
 
-		// if they moved themselves, then cancel the move
-		const MoveQueue_t::iterator moveQueueIt = std::find_if(m_moveQueue.begin(), m_moveQueue.end(),
-			[&player](const MoveQueue_t::value_type& val)
+		const auto CheckQueue = [this, &player](MoveQueue_t& moveQueue)
 		{
-			return val.second == player;
-		});
+			// if they moved themselves, then cancel the move
+			const MoveQueue_t::iterator moveQueueIt = std::find_if(moveQueue.begin(), moveQueue.end(),
+				[&player](const MoveQueue_t::value_type& val)
+			{
+				return val.second == player;
+			});
 
-		// they are not in the queue
-		if (moveQueueIt == m_moveQueue.end())
-			return;
+			if (moveQueueIt == moveQueue.end())
+				return;
 
-		// they were found, notify an admin
-		const PlayerMap_t& players = GetPlayers();
-		const PlayerMap_t::const_iterator requestorPlayerIt = players.find(moveQueueIt->first);
-		if (requestorPlayerIt != players.end())
-		{
-			SendChatMessage("Player " + moveQueueIt->second + " manually switched teams!", requestorPlayerIt->second);
-		}
+			// they were found, notify an admin
+			const PlayerMap_t& players = GetPlayers();
+			const PlayerMap_t::const_iterator requestorPlayerIt = players.find(moveQueueIt->first);
+			if (requestorPlayerIt != players.end())
+			{
+				SendChatMessage("Player " + moveQueueIt->second + " manually switched teams!", requestorPlayerIt->second);
+			}
 
-		m_moveQueue.erase(moveQueueIt);
+			moveQueue.erase(moveQueueIt);
+		};
+
+		CheckQueue(m_forceMoveQueue);
+		CheckQueue(m_moveQueue);
 	}
 
+	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		if (IsAdmin(pPlayer) == false)
+		{
+			SendChatMessage("You must be admin to use this command!", pPlayer);
+			return;
+		}
+
+		const std::string& targetPlayer = (args.size() == 1) ? pPlayer->name : args[1];
+
+		const PlayerMap_t& players = GetPlayers();
+
+		// try to find the player first
+		const PlayerMap_t::const_iterator targetIt = players.find(targetPlayer);
+		if (targetIt == players.end())
+		{
+			// find a fuzzy match
+			const std::shared_ptr<PlayerInfo_t>& pTarget = std::min_element(players.begin(), players.end(),
+				[&targetPlayer](const PlayerMap_t::value_type& left, const PlayerMap_t::value_type& right)
+			{
+				return LevenshteinDistance(targetPlayer, left.second->name) < LevenshteinDistance(targetPlayer, right.second->name);
+			})->second;
+
+			std::vector<std::string> fuzzyArgs(args);
+			fuzzyArgs[1] = pTarget->name;
+
+			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
+
+			// prompt the admin
+			SendChatMessage("Did you mean fmove " + pTarget->name + " (fuzzy match)?", pPlayer);
+
+			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
+			return;
+		}
+
+		const std::shared_ptr<PlayerInfo_t>& pTarget = targetIt->second;
+
+		const ServerInfo_t& serverInfo = GetServerInfo();
+		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
+
+		const int32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
+
+		// see if the enemy team has space
+		const uint8_t newTeamId = (pTarget->teamId % 2) + 1;
+
+		const Team_t& newTeam = GetTeam(newTeamId);
+		const uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
+
+		// try again later
+		if (teamSize >= maxTeamSize)
+		{
+			// add them to the force move queue
+			m_forceMoveQueue.push_back(std::make_pair(pPlayer->name, pTarget->name));
+			SendChatMessage("Player " + pTarget->name + " is #" + std::to_string(m_forceMoveQueue.size()) + " in the force move queue!", pPlayer);
+			return;
+		}
+
+		// we can move them, send it
+		MovePlayer(newTeamId, UINT8_MAX, pTarget);
+
+		// see if the player who initiated the move is still around
+		SendChatMessage("Successfully force moved player " + pTarget->name, pPlayer);
+		SendChatMessage("You were force moved by " + pPlayer->name, pTarget);
+	}
+	
 	void HandleMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
 		if (IsAdmin(pPlayer) == false)
@@ -329,6 +451,7 @@ private:
 	AdminMap_t m_adminNames;
 	AdminMap_t m_adminGUIDs;
 
+	MoveQueue_t m_forceMoveQueue;
 	MoveQueue_t m_moveQueue;
 
 	FuzzyMatchMap_t m_lastFuzzyMatchMap;
