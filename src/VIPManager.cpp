@@ -1,5 +1,9 @@
 #include <BetteRCon/Plugin.h>
 
+// STL
+#include <string>
+#include <unordered_map>
+
 #ifdef _WIN32
 // Windows stuff
 #include <Windows.h>
@@ -15,6 +19,8 @@ public:
 		std::string eaguid;
 		std::chrono::system_clock::time_point expiry;
 	};
+	using VIPMap_t = std::unordered_map<std::string, VIP>;
+
 	VIPManager(BetteRCon::Server* pServer)
 		: Plugin(pServer)
 	{
@@ -30,6 +36,8 @@ public:
 	virtual void Disable() { Plugin::Disable(); }
 
 	virtual ~VIPManager() {}
+private:
+	VIPMap_t m_vips;
 };
 
 PLUGIN_EXPORT VIPManager* CreatePlugin(BetteRCon::Server* pServer)
