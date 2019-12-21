@@ -205,8 +205,17 @@ private:
 
 		outFile.close();
 	}
+	
+	float CalculatePlayerStrength(const PlayerStrengthEntry& playerStrengthEntry)
+	{
+		const float relativeKDR = playerStrengthEntry.relativeKDR;
+		const float relativeKPR = playerStrengthEntry.relativeKPR;
+		const float relativeSPR = playerStrengthEntry.relativeSPR;
 
-	void CalculatePlayerStrength(const BetteRCon::Server::ServerInfo& serverInfo, const size_t numTeams, const std::shared_ptr<BetteRCon::Server::PlayerInfo>& pPlayer,
+		return (relativeKDR) + (relativeKPR * 2) + (relativeSPR * 4) + (playerStrengthEntry.winLossRatio * 3);
+	}
+
+	void CalculatePlayerStats(const BetteRCon::Server::ServerInfo& serverInfo, const size_t numTeams, const std::shared_ptr<BetteRCon::Server::PlayerInfo>& pPlayer,
 		const std::vector<float>& playerStrengths, const std::vector<float>& playerKDTotals, const std::vector<float>& playerKPRTotals, const std::vector<float>& playerSPRTotals,
 		PlayerStrengthEntry& playerStrengthEntry, bool roundEnd = false, bool win = false)
 	{
@@ -226,7 +235,7 @@ private:
 
 		const float levelAttendance = (pPlayer->firstSeen > m_levelStart) ? static_cast<float>(timeSinceFirstSeen.count()) / timeSinceLevelStart.count() : 1.f;
 		const float roundTime = levelAttendance * ((maxScore != 0) ? ((roundEnd == true) ? 1.f : (static_cast<float>(maxScore - minScore) / maxScore)) : 1.f);
-		const float strengthMultiplier = std::min((friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f, 2.f);
+		const float strengthMultiplier = std::max(std::min((friendlyStrength != 0.f) ? enemyStrength / friendlyStrength : 1.f, 2.f), 0.5f);
 
 		const uint32_t friendlyTeamSize = GetTeam(friendlyTeam).playerCount;
 
@@ -407,7 +416,7 @@ private:
 
 			const PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = CalculatePlayerStrength(playerStrengthEntry);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -448,7 +457,7 @@ private:
 		{
 			PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = CalculatePlayerStrength(playerStrengthEntry);
 			const float adjustedEnemyStrength = enemyStrength + playerStrength;
 			const float adjustedFriendlyStrength = friendlyStrength - playerStrength;
 
@@ -535,7 +544,7 @@ private:
 
 			const PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = CalculatePlayerStrength(playerStrengthEntry);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -549,7 +558,7 @@ private:
 		PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 		const std::shared_ptr<PlayerInfo>& pPlayer = playerIt->second;
 
-		CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry);
+		CalculatePlayerStats(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry);
 
 		// try to process the queue, maybe a spot just opened up on the other team
 		ProcessQueue();
@@ -606,7 +615,7 @@ private:
 
 			const PlayerStrengthEntry& playerStrengthEntry = playerStrengthIt->second;
 
-			const float playerStrength = (playerStrengthEntry.relativeKDR / 2) + (playerStrengthEntry.relativeKPR * playerStrengthEntry.relativeKPR / 2) + (playerStrengthEntry.relativeSPR * playerStrengthEntry.relativeSPR * 2) + (playerStrengthEntry.winLossRatio * 4);
+			const float playerStrength = CalculatePlayerStrength(playerStrengthEntry);
 
 			// don't include the neutral team's info
 			playerStrengths[pPlayer->teamId - 1] += playerStrength;
@@ -630,7 +639,7 @@ private:
 
 			const bool playerWon = pPlayer->teamId == m_lastWinningTeam;
 
-			CalculatePlayerStrength(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry, true, playerWon);
+			CalculatePlayerStats(serverInfo, numTeams, pPlayer, playerStrengths, playerKDTotals, playerKPRTotals, playerSPRTotals, playerStrengthEntry, true, playerWon);
 		}
 
 		// write the database
