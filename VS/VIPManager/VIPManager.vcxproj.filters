@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="VIPManager.cpp">
+    <ClCompile Include="..\..\src\VIPManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

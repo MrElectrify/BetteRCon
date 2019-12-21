@@ -18,6 +18,9 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\VIPManager.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{D018D89F-59A0-4AF7-82ED-1421D9256C60}</ProjectGuid>
@@ -185,9 +188,6 @@ mkdir $(SolutionDir)BetteRConConsole\plugins
 copy /y $(SolutionDir)plugins\VIPManager.plugin $(SolutionDir)BetteRConConsole\plugins\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="VIPManager.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
