@@ -48,6 +48,7 @@ public:
 
 		// register handlers
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
+		RegisterHandler("player.onLeave", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onTeamChange", std::bind(&InGameAdmin::HandleOnTeamSwitch, this, std::placeholders::_1));
 	}
 
@@ -163,6 +164,11 @@ private:
 			const PlayerMap_t::const_iterator frontPlayerIt = players.find(frontPlayerPair.second);
 			if (frontPlayerIt == players.end())
 			{
+				// notify the admin that initiated the move
+				const PlayerMap_t::const_iterator requestorPlayerIt = players.find(frontPlayerPair.first);
+				if (requestorPlayerIt != players.end())
+					SendChatMessage("Player " + frontPlayerPair.second + " left, so their pending move was cancelled!", requestorPlayerIt->second);
+
 				m_moveQueue.erase(m_moveQueue.begin());
 				continue;
 			}
@@ -217,6 +223,11 @@ private:
 			const PlayerMap_t::const_iterator frontPlayerIt = players.find(frontPlayerPair.second);
 			if (frontPlayerIt == players.end())
 			{
+				// notify the admin that initiated the move
+				const PlayerMap_t::const_iterator requestorPlayerIt = players.find(frontPlayerPair.first);
+				if (requestorPlayerIt != players.end())
+					SendChatMessage("Player " + frontPlayerPair.second + " left, so their pending force move was cancelled!", requestorPlayerIt->second);
+				
 				m_moveQueue.erase(m_moveQueue.begin());
 				continue;
 			}
