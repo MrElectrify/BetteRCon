@@ -119,6 +119,9 @@ namespace BetteRCon
 			m_pServer->MovePlayer(teamId, squadId, pPlayer); 
 		}
 
+		// Kills a player
+		void KillPlayer(const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.killPlayer", pPlayer->name }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+
 		// Registers a command with a given handler
 		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) { m_commandHandlers.emplace(commandName, std::move(commandHandler)); }
 	private:
