@@ -12,21 +12,23 @@
 // A set of in-game commands including admin commands.
 class VIPManager : public BetteRCon::Plugin
 {
-public:
+private:
 	struct VIP
 	{
 		std::string name;
 		std::string eaguid;
 		std::chrono::system_clock::time_point expiry;
 	};
+	
+	using PendingVIPMap_t = std::unordered_map<std::string, std::string>;
 	using VIPMap_t = std::unordered_map<std::string, VIP>;
-
+public:
 	VIPManager(BetteRCon::Server* pServer)
 		: Plugin(pServer)
 	{
 
 	}
-
+	
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "VIPManager"; }
 	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
@@ -37,6 +39,7 @@ public:
 
 	virtual ~VIPManager() {}
 private:
+	PendingVIPMap_t m_pendingVIPs;
 	VIPMap_t m_vips;
 };
 
