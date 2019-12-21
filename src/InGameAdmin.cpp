@@ -42,6 +42,7 @@ public:
 
 		// register commands
 		RegisterCommand("fmove", std::bind(&InGameAdmin::HandleForceMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("kick", std::bind(&InGameAdmin::HandleKick, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("kill", std::bind(&InGameAdmin::HandleKill, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("move", std::bind(&InGameAdmin::HandleMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("no", std::bind(&InGameAdmin::HandleNo, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
@@ -376,6 +377,66 @@ private:
 		SendChatMessage("You were force moved by " + pPlayer->name, pTarget);
 	}
 	
+	void HandleKick(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		if (IsAdmin(pPlayer) == false)
+		{
+			SendChatMessage("You must be admin to use this command!", pPlayer);
+			return;
+		}
+
+		// they obviously don't want to kick themselves, notify them of incorrect usage
+		if (args.size() < 2)
+		{
+			SendChatMessage("Usage: " + args[0] + " <playerName:string>", pPlayer);
+			return;
+		}
+
+		const std::string& targetPlayer = args[1];
+
+		const PlayerMap_t& players = GetPlayers();
+
+		// try to find the player first
+		const PlayerMap_t::const_iterator targetIt = players.find(targetPlayer);
+		if (targetIt == players.end())
+		{
+			// find a fuzzy match
+			const std::shared_ptr<PlayerInfo_t>& pTarget = std::min_element(players.begin(), players.end(),
+				[&targetPlayer](const PlayerMap_t::value_type& left, const PlayerMap_t::value_type& right)
+			{
+				return LevenshteinDistance(targetPlayer, left.second->name) < LevenshteinDistance(targetPlayer, right.second->name);
+			})->second;
+
+			std::vector<std::string> fuzzyArgs(args);
+			fuzzyArgs[1] = pTarget->name;
+
+			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
+
+			// prompt the admin
+			SendChatMessage("Did you mean kick " + pTarget->name + " (fuzzy match)?", pPlayer);
+
+			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
+			return;
+		}
+
+		const std::shared_ptr<PlayerInfo_t>& pTarget = targetIt->second;
+
+		std::string reasonMessage;
+		// construct the reason
+		for (size_t i = 2; i < args.size(); ++i)
+		{
+			reasonMessage.append(args[i]);
+
+			if (i != args.size() - 1)
+				reasonMessage.push_back(' ');
+		}
+
+		KickPlayer(pTarget, reasonMessage + " [" + pPlayer->name + "]");
+
+		// tell the admin that they were killed
+		SendChatMessage("Player " + pTarget->name + " was kicked (" + reasonMessage + ")!", pPlayer);
+	}
+
 	void HandleKill(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
 		if (IsAdmin(pPlayer) == false)
@@ -419,27 +480,21 @@ private:
 			return;
 		}
 
-		KillPlayer(pTarget);
-
 		std::string reasonMessage;
-		if (args.size() > 2)
+		// construct the reason
+		for (size_t i = 2; i < args.size(); ++i)
 		{
-			// they provided a reason, append it
-			reasonMessage = " for ";
-			for (size_t i = 2; i < args.size(); ++i)
-			{
-				reasonMessage.append(args[i]);
+			reasonMessage.append(args[i]);
 
-				if (i != args.size() - 1)
-					reasonMessage.push_back(' ');
-			}
+			if (i != args.size() - 1)
+				reasonMessage.push_back(' ');
 		}
 
-		// tell the admin that they were killed
-		SendChatMessage("Player " + pTarget->name + " was admin killed" + reasonMessage + "!", pPlayer);
-		SendChatMessage("You were admin killed by " + pPlayer->name + reasonMessage + "!", pTarget);
-
 		KillPlayer(pTarget);
+		
+		// tell the admin that they were killed
+		SendChatMessage("Player " + pTarget->name + " was admin killed (" + reasonMessage + ")!", pPlayer);
+		SendChatMessage("You were admin killed by " + pPlayer->name + " (" + reasonMessage + ")!", pTarget);
 	}
 
 	void HandleMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
