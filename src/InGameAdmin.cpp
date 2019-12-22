@@ -60,6 +60,7 @@ public:
 		RegisterCommand("yes", std::bind(&InGameAdmin::HandleYes, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register handlers
+		RegisterHandler("player.onAuthenticated", std::bind(&InGameAdmin::HandleOnAuthenticated, this, std::placeholders::_1));
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onLeave", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onTeamChange", std::bind(&InGameAdmin::HandleOnTeamSwitch, this, std::placeholders::_1));
@@ -389,6 +390,47 @@ private:
 			// remove the player from the queue
 			m_forceMoveQueue.erase(m_forceMoveQueue.begin());
 		}
+	}
+
+	void HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
+	{
+		if (eventArgs.size() != 3)
+			return;
+
+		const std::string& player = eventArgs[1];
+		const std::string& guid = eventArgs[2];
+
+		// find their player
+		const PlayerMap_t& players = GetPlayers();
+
+		const PlayerMap_t::const_iterator playerIt = players.find(player);
+		// this shouldn't happen
+		if (playerIt == players.end())
+			return;
+
+		// check to see if their GUID matches a ban
+		const BanMap_t::iterator banIt = m_banGUIDs.find(guid);
+		if (banIt == m_banGUIDs.end())
+			return;
+
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
+
+		// see if the ban is still valid
+		if (pBannedPlayer->perm == false &&
+			std::chrono::system_clock::now() >= pBannedPlayer->expiry)
+		{
+			// the ban expired. find their IP ban
+			const BanMap_t::iterator ipBanIt = m_banIPs.find(pBannedPlayer->ip);
+			if (ipBanIt != m_banIPs.end())
+				m_banIPs.erase(ipBanIt);
+
+			m_banGUIDs.erase(banIt);
+			
+			WriteBanDatabase();
+		}
+
+		// they are banned. kick them
+		KickPlayer(playerIt->second, banIt->second->reason);
 	}
 
 	void HandleOnKill(const std::vector<std::string>& eventArgs)
