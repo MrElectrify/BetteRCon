@@ -79,6 +79,9 @@ private:
 		if (inFile.good() == false)
 			return;
 
+		// clear the previous pending VIPs
+		m_pendingVIPs.clear();
+
 		// read each VIP with their duration
 		std::string pendingVIPLine;
 		while (inFile >> pendingVIPLine)
@@ -184,6 +187,9 @@ private:
 		}
 		
 		inFile.close();
+
+		// write the new database to reflect changes
+		WriteVIPDatabase();
 	}
 	void WriteVIPDatabase() 
 	{
@@ -236,6 +242,7 @@ private:
 		{
 			// remove them
 			m_VIPs.erase(vipIt);
+			WriteVIPDatabase();
 			return false;
 		}
 
@@ -299,6 +306,12 @@ private:
 		// switch the player
 		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
 		SendChatMessage("Get used to your new comrades.", pPlayer);
+	}
+
+	void HandleOnLevelLoaded(const std::vector<std::string>&)
+	{
+		// load the pending VIP database to see if new VIPs have been added
+		ReadPendingVIPDatabase();
 	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
