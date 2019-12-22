@@ -353,6 +353,7 @@ public:
 		RegisterCommand("switchme", std::bind(&VIPManager::HandleSwitchMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register event handlers
+		RegisterHandler("player.onJoin", std::bind(&VIPManager::HandleOnJoin, this, std::placeholders::_1));
 		RegisterHandler("server.onLevelLoaded", std::bind(&VIPManager::HandleOnLevelLoaded, this, std::placeholders::_1));
 	}
 
