@@ -25,6 +25,16 @@ public:
 		std::string guid;
 	};
 	using AdminMap_t = std::unordered_map<std::string, std::shared_ptr<Admin>>;
+	struct BannedPlayer
+	{
+		std::string name;
+		std::string guid;
+		std::string ip;
+		std::string reason;
+		bool perm;
+		std::chrono::system_clock::time_point expiry;
+	};
+	using BanMap_t = std::unordered_map<std::string, std::shared_ptr<BannedPlayer>>;
 	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::string& playerName, const std::vector<std::string>& args)>>;
 	using MoveQueue_t = std::list<std::pair<std::string, std::string>>;
 	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
@@ -41,6 +51,7 @@ public:
 		ReadAdminDatabase();
 
 		// register commands
+		RegisterCommand("ban", std::bind(&InGameAdmin::HandleBan, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("fmove", std::bind(&InGameAdmin::HandleForceMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("kick", std::bind(&InGameAdmin::HandleKick, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("kill", std::bind(&InGameAdmin::HandleKill, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
@@ -310,6 +321,66 @@ private:
 
 		CheckQueue(m_forceMoveQueue);
 		CheckQueue(m_moveQueue);
+	}
+
+	void HandleBan(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		if (IsAdmin(pPlayer) == false)
+		{
+			SendChatMessage("You must be admin to use this command!", pPlayer);
+			return;
+		}
+
+		// they obviously don't want to kick themselves, notify them of incorrect usage
+		if (args.size() < 2)
+		{
+			SendChatMessage("Usage: " + args[0] + " <playerName:string>", pPlayer);
+			return;
+		}
+
+		const std::string& targetPlayer = args[1];
+
+		const PlayerMap_t& players = GetPlayers();
+
+		// try to find the player first
+		const PlayerMap_t::const_iterator targetIt = players.find(targetPlayer);
+		if (targetIt == players.end())
+		{
+			// find a fuzzy match
+			const std::shared_ptr<PlayerInfo_t>& pTarget = std::min_element(players.begin(), players.end(),
+				[&targetPlayer](const PlayerMap_t::value_type& left, const PlayerMap_t::value_type& right)
+			{
+				return LevenshteinDistance(targetPlayer, left.second->name) < LevenshteinDistance(targetPlayer, right.second->name);
+			})->second;
+
+			std::vector<std::string> fuzzyArgs(args);
+			fuzzyArgs[1] = pTarget->name;
+
+			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
+
+			// prompt the admin
+			SendChatMessage("Did you mean kick " + pTarget->name + " (fuzzy match)?", pPlayer);
+
+			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
+			return;
+		}
+
+		const std::shared_ptr<PlayerInfo_t>& pTarget = targetIt->second;
+
+		std::string reasonMessage;
+		// construct the reason
+		for (size_t i = 2; i < args.size(); ++i)
+		{
+			reasonMessage.append(args[i]);
+
+			if (i != args.size() - 1)
+				reasonMessage.push_back(' ');
+		}
+
+		KickPlayer(pTarget, reasonMessage + " [" + pPlayer->name + "]");
+
+		// tell the admin that they were killed
+		SendChatMessage("Player " + pTarget->name + " was kicked (" + reasonMessage + ")!", pPlayer);
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
