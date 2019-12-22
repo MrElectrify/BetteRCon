@@ -60,6 +60,7 @@ public:
 		RegisterCommand("yes", std::bind(&InGameAdmin::HandleYes, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register handlers
+		RegisterHandler("bettercon.playerPBConnected", std::bind(&InGameAdmin::HandleOnPlayerPBConnected, this, std::placeholders::_1));
 		RegisterHandler("player.onAuthenticated", std::bind(&InGameAdmin::HandleOnAuthenticated, this, std::placeholders::_1));
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onLeave", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
@@ -395,6 +396,52 @@ private:
 		}
 	}
 
+	void HandleOnPlayerPBConnected(const std::vector<std::string>& eventArgs)
+	{
+		if (eventArgs.size() != 3)
+			return;
+
+		const std::string& name = eventArgs[1];
+
+		// find the player
+		const PlayerMap_t& players = GetPlayers();
+		
+		const PlayerMap_t::const_iterator& playerIt = players.find(name);
+		if (playerIt == players.end())
+			return;
+		
+		// see if we can find the player's ip
+		const std::string& ip = eventArgs[2];
+		
+		const BanMap_t::iterator& ipBanIt = m_banIPs.find(ip);
+		if (ipBanIt == m_banIPs.end())
+			return;
+
+		// see if their ban expired
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = ipBanIt->second;
+
+		// see if the ban is still valid
+		if (pBannedPlayer->perm == false &&
+			std::chrono::system_clock::now() >= pBannedPlayer->expiry)
+		{
+			// the ban expired. find their IP and name ban
+			const BanMap_t::iterator guidBanIt = m_banGUIDs.find(pBannedPlayer->guid);
+			if (guidBanIt != m_banGUIDs.end())
+				m_banGUIDs.erase(guidBanIt);
+
+			const BanMap_t::iterator nameBanIt = m_banNames.find(pBannedPlayer->name);
+			if (nameBanIt != m_banNames.end())
+				m_banNames.erase(nameBanIt);
+
+			m_banIPs.erase(ipBanIt);
+
+			WriteBanDatabase();
+		}
+
+		// they are banned. kick them
+		KickPlayer(playerIt->second, ipBanIt->second->reason);
+	}
+
 	void HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 	{
 		if (eventArgs.size() != 2)
@@ -425,10 +472,14 @@ private:
 		if (pBannedPlayer->perm == false &&
 			std::chrono::system_clock::now() >= pBannedPlayer->expiry)
 		{
-			// the ban expired. find their IP ban
+			// the ban expired. find their IP and name ban
 			const BanMap_t::iterator ipBanIt = m_banIPs.find(pBannedPlayer->ip);
 			if (ipBanIt != m_banIPs.end())
 				m_banIPs.erase(ipBanIt);
+
+			const BanMap_t::iterator nameBanIt = m_banNames.find(pBannedPlayer->name);
+			if (nameBanIt != m_banNames.end())
+				m_banNames.erase(nameBanIt);
 
 			m_banGUIDs.erase(banIt);
 			
@@ -538,7 +589,7 @@ private:
 		}
 
 		// add them to the ban database
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ pTarget->name, pTarget->GUID, pTarget->ipAddress, reasonMessage + " [" + pPlayer->name + "]", true, {} });
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ pTarget->name, pTarget->GUID, pTarget->ipAddress, reasonMessage + " [" + pPlayer->name + "] [perm]", true, {} });
 		
 		m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
 		m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
@@ -547,10 +598,10 @@ private:
 		// save their ban
 		WriteBanDatabase();
 
-		KickPlayer(pTarget, reasonMessage + " [" + pPlayer->name + "]");
+		KickPlayer(pTarget, pBannedPlayer->reason);
 
-		// tell the admin that they were killed
-		SendChatMessage("Player " + pTarget->name + " was BANNED (" + reasonMessage + ")!", pPlayer);
+		// tell everybody that they were banned
+		SendChatMessage("Player " + pTarget->name + " was BANNED (" + pBannedPlayer->reason + ")!");
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
