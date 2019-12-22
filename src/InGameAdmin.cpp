@@ -75,6 +75,17 @@ public:
 
 	virtual ~InGameAdmin() {}
 private:
+	AdminMap_t m_adminNames;
+	AdminMap_t m_adminGUIDs;
+
+	BanMap_t m_banGUIDs;
+	BanMap_t m_banIPs;
+
+	MoveQueue_t m_forceMoveQueue;
+	MoveQueue_t m_moveQueue;
+
+	FuzzyMatchMap_t m_lastFuzzyMatchMap;
+	
 	void ReadAdminDatabase()
 	{
 		// try to open the database
@@ -653,14 +664,6 @@ private:
 		// remove their handler
 		m_lastFuzzyMatchMap.erase(fuzzyMatchIt);
 	}
-
-	AdminMap_t m_adminNames;
-	AdminMap_t m_adminGUIDs;
-
-	MoveQueue_t m_forceMoveQueue;
-	MoveQueue_t m_moveQueue;
-
-	FuzzyMatchMap_t m_lastFuzzyMatchMap;
 };
 
 PLUGIN_EXPORT InGameAdmin* CreatePlugin(BetteRCon::Server* pServer)
