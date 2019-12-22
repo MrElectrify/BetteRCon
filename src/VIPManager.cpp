@@ -102,7 +102,7 @@ private:
 			{
 				// the player is in-game. give them VIP status
 				const std::shared_ptr<PlayerInfo_t> pPlayer = playerIt->second;
-				m_VIPs.emplace(name, VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
+				m_VIPs.emplace(pPlayer->GUID, VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
 				continue;
 			}
 
@@ -224,8 +224,8 @@ private:
 
 	bool IsVIP(const std::shared_ptr<PlayerInfo_t>& pPlayer)
 	{
-		// first see if they are not in either DB
-		const VIPMap_t::iterator vipIt = m_VIPs.find(pPlayer->name);
+		// first see if they are in the GUID db
+		const VIPMap_t::iterator vipIt = m_VIPs.find(pPlayer->GUID);
 		if (vipIt == m_VIPs.end())
 			return false;
 
