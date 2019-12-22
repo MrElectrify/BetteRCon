@@ -320,6 +320,9 @@ public:
 		// register VIP commands
 		RegisterCommand("killme", std::bind(&VIPManager::HandleKillMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("switchme", std::bind(&VIPManager::HandleSwitchMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+		// register event handlers
+		RegisterHandler("server.onLevelLoaded", std::bind(&VIPManager::HandleOnLevelLoaded, this, std::placeholders::_1));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
