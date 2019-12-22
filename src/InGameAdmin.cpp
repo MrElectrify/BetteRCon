@@ -70,15 +70,16 @@ public:
 	virtual std::string_view GetPluginName() const { return "InGameAdmin"; }
 	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
 
-	virtual void Enable() { Plugin::Enable(); ReadAdminDatabase(); }
+	virtual void Enable() { Plugin::Enable(); ReadAdminDatabase(); ReadBanDatabase(); }
 
-	virtual void Disable() { Plugin::Disable(); WriteAdminDatabase(); }
+	virtual void Disable() { Plugin::Disable(); WriteAdminDatabase(); WriteBanDatabase(); }
 
 	virtual ~InGameAdmin() {}
 private:
 	AdminMap_t m_adminNames;
 	AdminMap_t m_adminGUIDs;
 
+	BanMap_t m_banNames;
 	BanMap_t m_banGUIDs;
 	BanMap_t m_banIPs;
 
@@ -137,7 +138,7 @@ private:
 	void ReadBanDatabase() 
 	{
 		// try to open the file
-		std::ifstream inFile("plugins/bans.db", std::ios::binary);
+		std::ifstream inFile("plugins/Bans.db", std::ios::binary);
 		if (inFile.good() == false)
 			return;
 
@@ -147,7 +148,7 @@ private:
 		// read the size
 		const uint32_t banCount = *reinterpret_cast<uint32_t*>(&dbFile[0]);
 		
-		size_t offset = 0;
+		size_t offset = sizeof(uint32_t);
 
 		const auto readString = [&dbFile, &offset]() -> std::string
 		{
@@ -183,12 +184,14 @@ private:
 			offset += sizeof(time_t);
 
 			// see if the ban already expired
-			if (std::chrono::system_clock::now() >= tp)
+			if (perm == false &&
+				std::chrono::system_clock::now() >= tp)
 				return;
 
 			// add the ban to the databases
 			std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ std::move(name), std::move(guid), std::move(ip), std::move(reason), perm, tp });
 
+			m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
 			m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
 			m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
 		}
@@ -198,7 +201,7 @@ private:
 	void WriteBanDatabase() 
 	{
 		// try to open the ban database
-		std::ofstream outFile("plugins/bans.db", std::ios::binary);
+		std::ofstream outFile("plugins/Bans.db", std::ios::binary);
 		if (outFile.good() == false)
 			return;
 
@@ -394,11 +397,10 @@ private:
 
 	void HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 	{
-		if (eventArgs.size() != 3)
+		if (eventArgs.size() != 2)
 			return;
 
 		const std::string& player = eventArgs[1];
-		const std::string& guid = eventArgs[2];
 
 		// find their player
 		const PlayerMap_t& players = GetPlayers();
@@ -407,6 +409,10 @@ private:
 		// this shouldn't happen
 		if (playerIt == players.end())
 			return;
+		
+		const std::shared_ptr<PlayerInfo_t>& pPlayer = playerIt->second;
+
+		const std::string& guid = pPlayer->GUID;
 
 		// check to see if their GUID matches a ban
 		const BanMap_t::iterator banIt = m_banGUIDs.find(guid);
@@ -430,7 +436,7 @@ private:
 		}
 
 		// they are banned. kick them
-		KickPlayer(playerIt->second, banIt->second->reason);
+		KickPlayer(pPlayer, banIt->second->reason);
 	}
 
 	void HandleOnKill(const std::vector<std::string>& eventArgs)
@@ -513,7 +519,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean kick " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean ban " + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -531,10 +537,20 @@ private:
 				reasonMessage.push_back(' ');
 		}
 
+		// add them to the ban database
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ pTarget->name, pTarget->GUID, pTarget->ipAddress, reasonMessage + " [" + pPlayer->name + "]", true, {} });
+		
+		m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
+		m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
+		m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
+
+		// save their ban
+		WriteBanDatabase();
+
 		KickPlayer(pTarget, reasonMessage + " [" + pPlayer->name + "]");
 
 		// tell the admin that they were killed
-		SendChatMessage("Player " + pTarget->name + " was kicked (" + reasonMessage + ")!", pPlayer);
+		SendChatMessage("Player " + pTarget->name + " was BANNED (" + reasonMessage + ")!", pPlayer);
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
