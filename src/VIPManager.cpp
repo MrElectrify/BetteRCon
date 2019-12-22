@@ -242,7 +242,15 @@ private:
 
 	void HandleKillMe(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
+		// make sure they are a VIP
+		if (IsVIP(pPlayer) == false)
+		{
+			SendChatMessage("You must be a VIP to use this command! See discord in the description for more information!", pPlayer);
+			return;
+		}
 
+		// kill the player
+		
 	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
