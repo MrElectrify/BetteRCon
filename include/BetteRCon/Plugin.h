@@ -127,8 +127,6 @@ namespace BetteRCon
 		// Kicks a player without reason
 		void KickPlayer(const std::shared_ptr<Server::PlayerInfo>& pPlayer) { KickPlayer(pPlayer, ""); }
 
-		// Registers a command with a given handler
-		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) { m_commandHandlers.emplace(commandName, std::move(commandHandler)); }
 		// Registers a command with a given handler, which will be called regardless of case
 		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) 
 		{
