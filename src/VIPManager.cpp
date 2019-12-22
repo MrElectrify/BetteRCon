@@ -33,6 +33,8 @@ private:
 	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
 	using PendingVIPMap_t = std::unordered_map<std::string, std::string>;
+	using ServerInfo_t = BetteRCon::Server::ServerInfo;
+	using Team_t = BetteRCon::Server::Team;
 	using VIPMap_t = std::unordered_map<std::string, VIP>;
 
 	PendingVIPMap_t m_pendingVIPs;
@@ -260,12 +262,51 @@ private:
 		KillPlayer(pPlayer);
 		SendChatMessage("Thou hath been smitten!", pPlayer);
 	}
+
+	void HandleSwitchMe(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		// make sure they are a VIP
+		if (IsVIP(pPlayer) == false)
+		{
+			SendChatMessage("You must be a VIP to use this command! See discord in the description for more information!", pPlayer);
+			return;
+		}
+
+		// check to make sure that they are a player
+		if (pPlayer->type != PlayerInfo_t::TYPE_Player)
+		{
+			SendChatMessage("You must be a player to use killme!", pPlayer);
+			return;
+		}
+
+		// see if the enemy team has room
+		const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
+		const Team_t& newTeam = GetTeam(newTeamId);
+
+		const ServerInfo_t& serverInfo = GetServerInfo();
+		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
+
+		const uint32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
+
+		const uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
+
+		if (teamSize >= maxTeamSize)
+		{
+			SendChatMessage("The enemy team is full!", pPlayer);
+			return;
+		}
+
+		// switch the player
+		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
+		SendChatMessage("Get used to your new comrades.", pPlayer);
+	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
 		: Plugin(pServer) 
 	{
 		// register VIP commands
 		RegisterCommand("killme", std::bind(&VIPManager::HandleKillMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("switchme", std::bind(&VIPManager::HandleSwitchMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
