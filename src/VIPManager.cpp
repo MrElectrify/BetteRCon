@@ -153,7 +153,44 @@ private:
 	}
 
 	void ReadVIPDatabase() {}
-	void WriteVIPDatabase() {}
+	void WriteVIPDatabase() 
+	{
+		// open the output file
+		std::ofstream outFile("plugins/VIPs.cfg", std::ios::binary);
+		if (outFile.good() == false)
+			return;
+
+		// write the number of VIPs
+		std::vector<char> dbData(sizeof(uint32_t));
+
+		*reinterpret_cast<uint32_t*>(&dbData[0]) = m_VIPNames.size();
+
+		for (const VIPMap_t::value_type& vip : m_VIPNames)
+		{
+			const std::shared_ptr<VIP>& pPlayer = vip.second;
+			const std::string& name = pPlayer->name;
+
+			// write the name's length
+			dbData.push_back(name.size() % 0xff);
+
+			// write the string
+			dbData.insert(dbData.end(), name.begin(), name.end());
+
+			const std::string& guid = pPlayer->eaguid;
+			// write the guid's length
+			dbData.push_back(guid.size() % 0xff);
+
+			// write the guid
+			dbData.insert(dbData.end(), guid.begin(), guid.end());
+
+			// write the expiry time
+			dbData.resize(dbData.size() + sizeof(uint64_t));
+			*reinterpret_cast<uint64_t*>(&dbData[dbData.size() - sizeof(uint64_t)]) = pPlayer->expiry.time_since_epoch().count();
+		}
+
+		outFile.write(dbData.data(), dbData.size());
+		outFile.close();
+	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
 		: Plugin(pServer) {}
