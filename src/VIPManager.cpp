@@ -3,6 +3,7 @@
 // STL
 #include <chrono>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -30,10 +31,11 @@ private:
 	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
 	using PendingVIPMap_t = std::unordered_map<std::string, std::string>;
-	using VIPMap_t = std::unordered_map<std::string, VIP>;
+	using VIPMap_t = std::unordered_map<std::string, std::shared_ptr<VIP>>;
 
 	PendingVIPMap_t m_pendingVIPs;
-	VIPMap_t m_VIPs;
+	VIPMap_t m_VIPNames;
+	VIPMap_t m_VIPGUIDs;
 
 	std::chrono::system_clock::duration ParseDuration(const std::string& durationStr)
 	{
@@ -91,16 +93,22 @@ private:
 			std::string duration = pendingVIPLine.substr(comma + 1);
 
 			// see if they are already a VIP
-			const VIPMap_t::iterator vipIt = m_VIPs.find(name);
-			if (vipIt != m_VIPs.end())
+			const VIPMap_t::iterator vipIt = m_VIPNames.find(name);
+			if (vipIt != m_VIPNames.end())
 			{
 				// we are updating an existing VIP. add the time
-				vipIt->second.expiry += ParseDuration(duration);
+				vipIt->second->expiry += ParseDuration(duration);
 
 				// check to make sure they have not expired
-				if (std::chrono::system_clock::now() > vipIt->second.expiry)
-					m_VIPs.erase(vipIt);
+				if (std::chrono::system_clock::now() > vipIt->second->expiry)
+				{
+					// don't forget about their guid
+					const VIPMap_t::iterator vipGUIDIt = m_VIPGUIDs.find(vipIt->second->eaguid);
+					if (vipGUIDIt != m_VIPGUIDs.end())
+						m_VIPGUIDs.erase(vipGUIDIt);
 
+					m_VIPNames.erase(vipIt);
+				}
 				continue;
 			}
 
@@ -112,8 +120,11 @@ private:
 			{
 				// the player is in-game. give them VIP status
 				const std::shared_ptr<PlayerInfo_t> pPlayer = playerIt->second;
-				m_VIPs.emplace(std::move(name), VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
 
+				const std::shared_ptr<VIP> pVIP = std::make_shared<VIP>(VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
+
+				m_VIPNames.emplace(name, pVIP);
+				m_VIPGUIDs.emplace(std::move(name), pVIP);
 				continue;
 			}
 
@@ -125,6 +136,7 @@ private:
 
 		// write the database to show changes
 		WritePendingVIPDatabase();
+		WriteVIPDatabase();
 	}
 	void WritePendingVIPDatabase() 
 	{
