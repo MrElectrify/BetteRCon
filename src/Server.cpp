@@ -620,6 +620,10 @@ void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 		commandArgs.emplace_back(chatMessage.substr(offset));
 	}
 
+	// store the lowercase command
+	std::string lowerCommand;
+	std::transform(commandArgs[0].begin(), commandArgs[0].end(), std::back_inserter(lowerCommand), [](const char c) { return std::tolower(c); });
+
 	// call each plugin's command handler
 	for (const PluginMap_t::value_type& plugin : m_plugins)
 	{
@@ -630,7 +634,7 @@ void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 		const Plugin::CommandHandlerMap_t& commandHandlers = plugin.second.pPlugin->GetCommandHandlers();
 
 		// call their handler
-		const std::pair<const Plugin::CommandHandlerMap_t::const_iterator, const Plugin::CommandHandlerMap_t::const_iterator> commandRange = commandHandlers.equal_range(commandArgs[0]);
+		const std::pair<const Plugin::CommandHandlerMap_t::const_iterator, const Plugin::CommandHandlerMap_t::const_iterator> commandRange = commandHandlers.equal_range(lowerCommand);
 
 		for (Plugin::CommandHandlerMap_t::const_iterator it = commandRange.first; it != commandRange.second; ++it)
 			it->second(playerIt->second, commandArgs, prefix);
