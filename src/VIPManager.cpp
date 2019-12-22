@@ -47,7 +47,7 @@ private:
 		catch (const std::exception&)
 		{
 			BetteRCon::Internal::g_stdErrLog << "[VIPManager] Failed to parse duration coefficient: " << durationStr.substr(0, durationStr.size() - 1) << '\n';
-			return;
+			return {};
 		}
 
 		switch (durationType)
@@ -62,7 +62,7 @@ private:
 			return Months_t(durationCoefficient);
 		default:
 			BetteRCon::Internal::g_stdErrLog << "[VIPManager] Failed to parse duration type: " << durationType << '\n';
-			return;
+			return {};
 		}
 	}
 
