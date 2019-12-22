@@ -1041,7 +1041,7 @@ void Server::RemovePlayerFromSquad(const std::shared_ptr<PlayerInfo>& pPlayer, c
 
 	// if they are commander, decrement the team's commander count
 	if (pPlayer->type == PlayerInfo::TYPE_Commander)
-		--teamIt->second.playerCount;
+		--teamIt->second.commanderCount;
 
 	// erase the team if it is empty
 	if (teamIt->second.squads.empty() == true)

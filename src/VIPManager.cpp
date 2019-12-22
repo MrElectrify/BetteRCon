@@ -33,6 +33,8 @@ private:
 	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
 	using PendingVIPMap_t = std::unordered_map<std::string, std::string>;
+	using ServerInfo_t = BetteRCon::Server::ServerInfo;
+	using Team_t = BetteRCon::Server::Team;
 	using VIPMap_t = std::unordered_map<std::string, VIP>;
 
 	PendingVIPMap_t m_pendingVIPs;
@@ -77,6 +79,9 @@ private:
 		if (inFile.good() == false)
 			return;
 
+		// clear the previous pending VIPs
+		m_pendingVIPs.clear();
+
 		// read each VIP with their duration
 		std::string pendingVIPLine;
 		while (inFile >> pendingVIPLine)
@@ -100,8 +105,24 @@ private:
 			const PlayerMap_t::const_iterator playerIt = players.find(name);
 			if (playerIt != players.end())
 			{
-				// the player is in-game. give them VIP status
 				const std::shared_ptr<PlayerInfo_t> pPlayer = playerIt->second;
+
+				// the player is in-game. first see if they are already a VIP
+				const VIPMap_t::iterator vipIt = m_VIPs.find(pPlayer->GUID);
+				if (vipIt != m_VIPs.end())
+				{
+					// they are a VIP already. update their duration
+					VIP& VIP = vipIt->second;
+					VIP.expiry += ParseDuration(duration);
+					
+					// make sure it is not expired
+					if (std::chrono::system_clock::now() >= VIP.expiry)
+					{
+						// remove them
+						m_VIPs.erase(vipIt);
+						continue;
+					}
+				}
 				m_VIPs.emplace(pPlayer->GUID, VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
 				continue;
 			}
@@ -182,6 +203,9 @@ private:
 		}
 		
 		inFile.close();
+
+		// write the new database to reflect changes
+		WriteVIPDatabase();
 	}
 	void WriteVIPDatabase() 
 	{
@@ -234,6 +258,7 @@ private:
 		{
 			// remove them
 			m_VIPs.erase(vipIt);
+			WriteVIPDatabase();
 			return false;
 		}
 
@@ -249,8 +274,75 @@ private:
 			return;
 		}
 
+		// check to make sure that they are a player
+		if (pPlayer->type != PlayerInfo_t::TYPE_Player)
+		{
+			SendChatMessage("You must be a player to use killme!", pPlayer);
+			return;
+		}
+
 		// kill the player
-		
+		KillPlayer(pPlayer);
+		SendChatMessage("Thou hath been smitten!", pPlayer);
+	}
+
+	void HandleSwitchMe(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		// make sure they are a VIP
+		if (IsVIP(pPlayer) == false)
+		{
+			SendChatMessage("You must be a VIP to use this command! See discord in the description for more information!", pPlayer);
+			return;
+		}
+
+		// check to make sure that they are a player
+		if (pPlayer->type != PlayerInfo_t::TYPE_Player)
+		{
+			SendChatMessage("You must be a player to use killme!", pPlayer);
+			return;
+		}
+
+		// see if the enemy team has room
+		const uint8_t newTeamId = (pPlayer->teamId % 2) + 1;
+		const Team_t& newTeam = GetTeam(newTeamId);
+
+		const ServerInfo_t& serverInfo = GetServerInfo();
+		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
+
+		const uint32_t maxTeamSize = (teamScores.size() != 0) ? serverInfo.m_maxPlayerCount / teamScores.size() : 0;
+
+		const uint32_t teamSize = newTeam.playerCount - newTeam.commanderCount;
+
+		if (teamSize >= maxTeamSize)
+		{
+			SendChatMessage("The enemy team is full!", pPlayer);
+			return;
+		}
+
+		// switch the player
+		MovePlayer(newTeamId, UINT8_MAX, pPlayer);
+		SendChatMessage("Get used to your new comrades.", pPlayer);
+	}
+
+	void HandleOnJoin(const std::vector<std::string>& eventArgs)
+	{
+		if (eventArgs.size() != 3)
+			return;
+
+		// check to see if they are in the VIP db
+		const VIPMap_t::iterator vipIt = m_VIPs.find(eventArgs[2]);
+		if (vipIt == m_VIPs.end())
+			return;
+
+		// check to see if their VIP status has expired
+		if (std::chrono::system_clock::now() >= vipIt->second.expiry)
+			m_VIPs.erase(vipIt);
+	}
+
+	void HandleOnLevelLoaded(const std::vector<std::string>&)
+	{
+		// load the pending VIP database to see if new VIPs have been added
+		ReadPendingVIPDatabase();
 	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
@@ -258,11 +350,16 @@ public:
 	{
 		// register VIP commands
 		RegisterCommand("killme", std::bind(&VIPManager::HandleKillMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("switchme", std::bind(&VIPManager::HandleSwitchMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+		// register event handlers
+		RegisterHandler("player.onJoin", std::bind(&VIPManager::HandleOnJoin, this, std::placeholders::_1));
+		RegisterHandler("server.onLevelLoaded", std::bind(&VIPManager::HandleOnLevelLoaded, this, std::placeholders::_1));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "VIPManager"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.0.1"; }
 
 	virtual void Enable() { Plugin::Enable(); ReadVIPDatabase(); ReadPendingVIPDatabase(); }
 
