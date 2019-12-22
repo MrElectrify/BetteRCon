@@ -108,7 +108,6 @@ private:
 
 		inFile.close();
 	}
-
 	void WriteAdminDatabase()
 	{
 		// open the output file
@@ -123,6 +122,9 @@ private:
 		outFile.close();
 	}
 	
+	void ReadBanDatabase() {}
+	void WriteBanDatabase() {}
+
 	bool IsAdmin(const std::shared_ptr<PlayerInfo_t>& pPlayer) const
 	{
 		return (m_adminNames.find(pPlayer->name) != m_adminNames.end() ||
