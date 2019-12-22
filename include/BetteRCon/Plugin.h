@@ -119,6 +119,16 @@ namespace BetteRCon
 			m_pServer->MovePlayer(teamId, squadId, pPlayer); 
 		}
 
+		// Kills a player
+		void KillPlayer(const std::shared_ptr<Server::PlayerInfo>& pPlayer) { SendCommand({ "admin.killPlayer", pPlayer->name }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+
+		// Kicks a player with a reason
+		void KickPlayer(const std::shared_ptr<Server::PlayerInfo>& pPlayer, const std::string& reason) { SendCommand({ "admin.kickPlayer", pPlayer->name, reason }, [](const Server::ErrorCode_t&, const std::vector<std::string>&) {}); }
+		// Kicks a player without reason
+		void KickPlayer(const std::shared_ptr<Server::PlayerInfo>& pPlayer) { KickPlayer(pPlayer, ""); }
+
+		// Registers a command with a given handler
+		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) { m_commandHandlers.emplace(commandName, std::move(commandHandler)); }
 		// Registers a command with a given handler, which will be called regardless of case
 		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) 
 		{
