@@ -133,12 +133,72 @@ private:
 		outFile.close();
 	}
 	
-	void ReadBanDatabase() {}
+	void ReadBanDatabase() 
+	{
+		// try to open the file
+		std::ifstream inFile("plugins/bans.db", std::ios::binary);
+		if (inFile.good() == false)
+			return;
+
+		// read the file
+		std::vector<char> dbFile(std::istreambuf_iterator<char>(inFile), {});
+
+		// read the size
+		const uint32_t banCount = *reinterpret_cast<uint32_t*>(&dbFile[0]);
+		
+		size_t offset = 0;
+
+		const auto readString = [&dbFile, &offset]() -> std::string
+		{
+			// read the string size
+			const uint8_t strLen = static_cast<uint8_t>(dbFile[offset]);
+			++offset;
+
+			// read the string
+			std::string res(&dbFile[offset], strLen);
+			offset += strLen;
+
+			return res;
+		};
+		
+		for (uint32_t i = 0; i < banCount; ++i)
+		{
+			// naive bounds check
+			if (offset >= dbFile.size())
+			{
+				BetteRCon::Internal::g_stdErrLog << "[InGameAdmin] Invalid DB\n";
+				return;
+			}
+
+			const std::string name = readString();
+			const std::string guid = readString();
+			const std::string ip = readString();
+			const std::string reason = readString();
+
+			const bool perm = static_cast<bool>(dbFile[offset]);
+			++offset;
+
+			const std::chrono::system_clock::time_point tp = std::chrono::system_clock::from_time_t(*reinterpret_cast<time_t*>(&dbFile[offset]));
+			offset += sizeof(time_t);
+
+			// see if the ban already expired
+			if (std::chrono::system_clock::now() >= tp)
+				return;
+
+			// add the ban to the databases
+			std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ std::move(name), std::move(guid), std::move(ip), std::move(reason), perm, tp });
+
+			m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
+			m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
+		}
+
+		inFile.close();
+	}
 	void WriteBanDatabase() 
 	{
 		// try to open the ban database
-		std::ifstream inFile("plugins/bans.db", std::ios::binary);
-		if (inFile.good() == false)
+		std::ofstream outFile("plugins/bans.db", std::ios::binary);
+		if (outFile.good() == false)
 			return;
 
 		// write the ban database size
@@ -150,7 +210,7 @@ private:
 			// write the size
 			dbData.push_back(str.size() & 0xff);
 			// write the string
-			dbData.insert(dbFile.end(), str.begin(), str.end());
+			dbData.insert(dbData.end(), str.begin(), str.end());
 		};
 
 		// write each ban
@@ -169,8 +229,10 @@ private:
 			*reinterpret_cast<time_t*>(&dbData[dbData.size() - sizeof(time_t)]) = std::chrono::system_clock::to_time_t(pBannedPlayer->expiry);
 		}
 
+		// write the db
+		outFile.write(dbData.data(), dbData.size());
 		// close the file
-		inFile.close();
+		outFile.close();
 	}
 
 	bool IsAdmin(const std::shared_ptr<PlayerInfo_t>& pPlayer) const
