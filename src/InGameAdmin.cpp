@@ -134,7 +134,44 @@ private:
 	}
 	
 	void ReadBanDatabase() {}
-	void WriteBanDatabase() {}
+	void WriteBanDatabase() 
+	{
+		// try to open the ban database
+		std::ifstream inFile("plugins/bans.db", std::ios::binary);
+		if (inFile.good() == false)
+			return;
+
+		// write the ban database size
+		std::vector<char> dbData(sizeof(uint32_t));
+		*reinterpret_cast<uint32_t*>(&dbData[0]) = m_banGUIDs.size();
+
+		const auto writeString = [&dbData](const std::string& str)
+		{
+			// write the size
+			dbData.push_back(str.size() & 0xff);
+			// write the string
+			dbData.insert(dbFile.end(), str.begin(), str.end());
+		};
+
+		// write each ban
+		for (const BanMap_t::value_type& banPair : m_banGUIDs)
+		{
+			const std::shared_ptr<BannedPlayer> pBannedPlayer = banPair.second;
+
+			writeString(pBannedPlayer->name);
+			writeString(pBannedPlayer->guid);
+			writeString(pBannedPlayer->ip);
+			writeString(pBannedPlayer->reason);
+
+			dbData.push_back(pBannedPlayer->perm);
+
+			dbData.resize(dbData.size() + sizeof(time_t));
+			*reinterpret_cast<time_t*>(&dbData[dbData.size() - sizeof(time_t)]) = std::chrono::system_clock::to_time_t(pBannedPlayer->expiry);
+		}
+
+		// close the file
+		inFile.close();
+	}
 
 	bool IsAdmin(const std::shared_ptr<PlayerInfo_t>& pPlayer) const
 	{
