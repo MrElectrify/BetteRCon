@@ -324,6 +324,21 @@ private:
 		SendChatMessage("Get used to your new comrades.", pPlayer);
 	}
 
+	void HandleOnJoin(const std::vector<std::string>& eventArgs)
+	{
+		if (eventArgs.size() != 3)
+			return;
+
+		// check to see if they are in the VIP db
+		const VIPMap_t::iterator vipIt = m_VIPs.find(eventArgs[2]);
+		if (vipIt == m_VIPs.end())
+			return;
+
+		// check to see if their VIP status has expired
+		if (std::chrono::system_clock::now() >= vipIt->second.expiry)
+			m_VIPs.erase(vipIt);
+	}
+
 	void HandleOnLevelLoaded(const std::vector<std::string>&)
 	{
 		// load the pending VIP database to see if new VIPs have been added
