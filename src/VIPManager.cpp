@@ -105,8 +105,24 @@ private:
 			const PlayerMap_t::const_iterator playerIt = players.find(name);
 			if (playerIt != players.end())
 			{
-				// the player is in-game. give them VIP status
 				const std::shared_ptr<PlayerInfo_t> pPlayer = playerIt->second;
+
+				// the player is in-game. first see if they are already a VIP
+				const VIPMap_t::iterator vipIt = m_VIPs.find(pPlayer->GUID);
+				if (vipIt != m_VIPs.end())
+				{
+					// they are a VIP already. update their duration
+					VIP& VIP = vipIt->second;
+					VIP.expiry += ParseDuration(duration);
+					
+					// make sure it is not expired
+					if (std::chrono::system_clock::now() >= VIP.expiry)
+					{
+						// remove them
+						m_VIPs.erase(vipIt);
+						continue;
+					}
+				}
 				m_VIPs.emplace(pPlayer->GUID, VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
 				continue;
 			}
