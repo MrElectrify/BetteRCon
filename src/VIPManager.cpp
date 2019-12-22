@@ -249,8 +249,16 @@ private:
 			return;
 		}
 
+		// check to make sure that they are a player
+		if (pPlayer->type != PlayerInfo_t::TYPE_Player)
+		{
+			SendChatMessage("You must be a player to use killme!", pPlayer);
+			return;
+		}
+
 		// kill the player
-		
+		KillPlayer(pPlayer);
+		SendChatMessage("Thou hath been smitten!", pPlayer);
 	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
