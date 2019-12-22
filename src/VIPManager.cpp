@@ -4,8 +4,10 @@
 #include <chrono>
 #include <fstream>
 #include <memory>
+#include <streambuf>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #ifdef _WIN32
 // Windows stuff
@@ -100,7 +102,7 @@ private:
 				vipIt->second->expiry += ParseDuration(duration);
 
 				// check to make sure they have not expired
-				if (std::chrono::system_clock::now() > vipIt->second->expiry)
+				if (std::chrono::system_clock::now() >= vipIt->second->expiry)
 				{
 					// don't forget about their guid
 					const VIPMap_t::iterator vipGUIDIt = m_VIPGUIDs.find(vipIt->second->eaguid);
@@ -152,7 +154,63 @@ private:
 		outFile.close();
 	}
 
-	void ReadVIPDatabase() {}
+	void ReadVIPDatabase() 
+	{
+		// open the input file
+		std::ifstream inFile("plugins/VIPs.cfg", std::ios::binary);
+		if (inFile.good() == false)
+			return;
+
+		// read the file into a vector
+		std::vector<char> dbData(std::istreambuf_iterator<char>(inFile), {});
+
+		// empty DB
+		if (dbData.size() == 0)
+			return;
+
+		const uint32_t dbSize = *reinterpret_cast<uint32_t*>(&dbData[0]);
+
+		size_t offset = sizeof(uint32_t);
+		for (size_t i = 0; i < dbSize; ++i)
+		{
+			// naive bounds checking
+			if (offset >= dbData.size())
+			{
+				BetteRCon::Internal::g_stdErrLog << "[VIPManager] Invalid VIP DB\n";
+				return;
+			}
+
+			// read the name
+			const uint8_t nameLen = *reinterpret_cast<uint8_t*>(&dbData[offset]);
+			++offset;
+
+			std::string name(&dbData[offset], nameLen);
+			offset += nameLen;
+
+			// read the guid
+			const uint8_t guidLen = *reinterpret_cast<uint8_t*>(&dbData[offset]);
+			++offset;
+
+			std::string guid(&dbData[offset], guidLen);
+			offset += guidLen;
+
+			// read the time point
+			std::chrono::system_clock::time_point tp = std::chrono::system_clock::from_time_t(*reinterpret_cast<time_t*>(&dbData[offset]));
+			offset += sizeof(time_t);
+
+			// make sure they are not expired
+			if (std::chrono::system_clock::now() >= tp)
+				continue;
+
+			// add them to the DB
+			std::shared_ptr<VIP> pVIP = std::make_shared<VIP>(VIP{ std::move(name), std::move(guid), tp });
+
+			m_VIPNames.emplace(pVIP->name, pVIP);
+			m_VIPGUIDs.emplace(pVIP->eaguid, std::move(pVIP));
+		}
+		
+		inFile.close();
+	}
 	void WriteVIPDatabase() 
 	{
 		// open the output file
@@ -167,8 +225,8 @@ private:
 
 		for (const VIPMap_t::value_type& vip : m_VIPNames)
 		{
-			const std::shared_ptr<VIP>& pPlayer = vip.second;
-			const std::string& name = pPlayer->name;
+			const std::shared_ptr<VIP>& pVIP = vip.second;
+			const std::string& name = pVIP->name;
 
 			// write the name's length
 			dbData.push_back(name.size() % 0xff);
@@ -176,7 +234,7 @@ private:
 			// write the string
 			dbData.insert(dbData.end(), name.begin(), name.end());
 
-			const std::string& guid = pPlayer->eaguid;
+			const std::string& guid = pVIP->eaguid;
 			// write the guid's length
 			dbData.push_back(guid.size() % 0xff);
 
@@ -184,8 +242,8 @@ private:
 			dbData.insert(dbData.end(), guid.begin(), guid.end());
 
 			// write the expiry time
-			dbData.resize(dbData.size() + sizeof(uint64_t));
-			*reinterpret_cast<uint64_t*>(&dbData[dbData.size() - sizeof(uint64_t)]) = pPlayer->expiry.time_since_epoch().count();
+			dbData.resize(dbData.size() + sizeof(time_t));
+			*reinterpret_cast<time_t*>(&dbData[dbData.size() - sizeof(time_t)]) = std::chrono::system_clock::to_time_t(pVIP->expiry);
 		}
 
 		outFile.write(dbData.data(), dbData.size());
