@@ -129,6 +129,13 @@ namespace BetteRCon
 
 		// Registers a command with a given handler
 		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) { m_commandHandlers.emplace(commandName, std::move(commandHandler)); }
+		// Registers a command with a given handler, which will be called regardless of case
+		void RegisterCommand(const std::string& commandName, CommandHandler_t&& commandHandler) 
+		{
+			std::string lowerCommand;
+			std::transform(commandName.begin(), commandName.end(), std::back_inserter(lowerCommand), [](const char c) { return std::tolower(c); });
+			m_commandHandlers.emplace(lowerCommand, std::move(commandHandler)); 
+		}
 	private:
 		bool m_enabled = false;
 
