@@ -33,11 +33,11 @@ private:
 	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
 	using PlayerMap_t = BetteRCon::Server::PlayerMap_t;
 	using PendingVIPMap_t = std::unordered_map<std::string, std::string>;
-	using VIPMap_t = std::unordered_map<std::string, std::shared_ptr<VIP>>;
+	using VIPMap_t = std::unordered_map<std::string, VIP>;
 
 	PendingVIPMap_t m_pendingVIPs;
-	VIPMap_t m_VIPNames;
-	VIPMap_t m_VIPGUIDs;
+	// may have some duplicates
+	VIPMap_t m_VIPs;
 
 	std::chrono::system_clock::duration ParseDuration(const std::string& durationStr)
 	{
@@ -94,26 +94,6 @@ private:
 			std::string name = pendingVIPLine.substr(0, comma);
 			std::string duration = pendingVIPLine.substr(comma + 1);
 
-			// see if they are already a VIP
-			const VIPMap_t::iterator vipIt = m_VIPNames.find(name);
-			if (vipIt != m_VIPNames.end())
-			{
-				// we are updating an existing VIP. add the time
-				vipIt->second->expiry += ParseDuration(duration);
-
-				// check to make sure they have not expired
-				if (std::chrono::system_clock::now() >= vipIt->second->expiry)
-				{
-					// don't forget about their guid
-					const VIPMap_t::iterator vipGUIDIt = m_VIPGUIDs.find(vipIt->second->eaguid);
-					if (vipGUIDIt != m_VIPGUIDs.end())
-						m_VIPGUIDs.erase(vipGUIDIt);
-
-					m_VIPNames.erase(vipIt);
-				}
-				continue;
-			}
-
 			// check to see if the player is in-game already
 			const PlayerMap_t players = GetPlayers();
 
@@ -122,11 +102,7 @@ private:
 			{
 				// the player is in-game. give them VIP status
 				const std::shared_ptr<PlayerInfo_t> pPlayer = playerIt->second;
-
-				const std::shared_ptr<VIP> pVIP = std::make_shared<VIP>(VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
-
-				m_VIPNames.emplace(name, pVIP);
-				m_VIPGUIDs.emplace(std::move(name), pVIP);
+				m_VIPs.emplace(name, VIP{ pPlayer->name, pPlayer->GUID, std::chrono::system_clock::now() + ParseDuration(duration) });
 				continue;
 			}
 
@@ -202,11 +178,7 @@ private:
 			if (std::chrono::system_clock::now() >= tp)
 				continue;
 
-			// add them to the DB
-			std::shared_ptr<VIP> pVIP = std::make_shared<VIP>(VIP{ std::move(name), std::move(guid), tp });
-
-			m_VIPNames.emplace(pVIP->name, pVIP);
-			m_VIPGUIDs.emplace(pVIP->eaguid, std::move(pVIP));
+			m_VIPs.emplace(guid, VIP{ std::move(name), guid, tp });
 		}
 		
 		inFile.close();
@@ -221,12 +193,12 @@ private:
 		// write the number of VIPs
 		std::vector<char> dbData(sizeof(uint32_t));
 
-		*reinterpret_cast<uint32_t*>(&dbData[0]) = m_VIPNames.size();
+		*reinterpret_cast<uint32_t*>(&dbData[0]) = m_VIPs.size();
 
-		for (const VIPMap_t::value_type& vip : m_VIPNames)
+		for (const VIPMap_t::value_type& vipPair : m_VIPs)
 		{
-			const std::shared_ptr<VIP>& pVIP = vip.second;
-			const std::string& name = pVIP->name;
+			const VIP& VIP = vipPair.second;
+			const std::string& name = VIP.name;
 
 			// write the name's length
 			dbData.push_back(name.size() % 0xff);
@@ -234,7 +206,7 @@ private:
 			// write the string
 			dbData.insert(dbData.end(), name.begin(), name.end());
 
-			const std::string& guid = pVIP->eaguid;
+			const std::string& guid = VIP.eaguid;
 			// write the guid's length
 			dbData.push_back(guid.size() % 0xff);
 
@@ -243,15 +215,42 @@ private:
 
 			// write the expiry time
 			dbData.resize(dbData.size() + sizeof(time_t));
-			*reinterpret_cast<time_t*>(&dbData[dbData.size() - sizeof(time_t)]) = std::chrono::system_clock::to_time_t(pVIP->expiry);
+			*reinterpret_cast<time_t*>(&dbData[dbData.size() - sizeof(time_t)]) = std::chrono::system_clock::to_time_t(VIP.expiry);
 		}
 
 		outFile.write(dbData.data(), dbData.size());
 		outFile.close();
 	}
+
+	bool IsVIP(const std::shared_ptr<PlayerInfo_t>& pPlayer)
+	{
+		// first see if they are not in either DB
+		const VIPMap_t::iterator vipIt = m_VIPs.find(pPlayer->name);
+		if (vipIt == m_VIPs.end())
+			return false;
+
+		// see if their VIP status expired
+		if (std::chrono::system_clock::now() >= vipIt->second.expiry)
+		{
+			// remove them
+			m_VIPs.erase(vipIt);
+			return false;
+		}
+
+		return true;
+	}
+
+	void HandleKillMe(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+
+	}
 public:
 	VIPManager(BetteRCon::Server* pServer)
-		: Plugin(pServer) {}
+		: Plugin(pServer) 
+	{
+		// register VIP commands
+		RegisterCommand("killme", std::bind(&VIPManager::HandleKillMe, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "VIPManager"; }
