@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
 		
 			for (const Server::TeamMap_t::value_type& team : teams)
 			{
-				std::cout << "Team " << static_cast<uint32_t>(team.first) << " (" << team.second.playerCount << " players, " << team.second.squads.size() << " squads):\n";
+				std::cout << "Team " << static_cast<uint32_t>(team.first) << " (" << team.second.playerCount << " players, " << team.second.squads.size() << " squads, " << team.second.commanderCount << " commanders):\n";
 				for (const Server::SquadMap_t::value_type& squad : team.second.squads)
 				{
 					std::cout << "\tSquad " << squads[squad.first] << " (" << squad.second.size() << " players):\n";

@@ -505,7 +505,12 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 			pPlayer->score = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 6)));
 			pPlayer->rank = static_cast<uint32_t>(std::stoi(playerInfo.at(offset + numVar * i + 7)));
 			pPlayer->ping = static_cast<uint16_t>(std::stoi(playerInfo.at(offset + numVar * i + 8)));
+			// see if they became a commander since our last check
+			const PlayerInfo::TYPE oldType = pPlayer->type;
 			pPlayer->type = static_cast<PlayerInfo::TYPE>(std::stoi(playerInfo.at(offset + numVar * i + 9)));
+			if (pPlayer->type == PlayerInfo::TYPE_Commander &&
+				oldType != PlayerInfo::TYPE_Commander)
+				++m_teams.at(pPlayer->teamId).commanderCount;
 			pPlayer->seenThisCheck = true;
 
 			if (firstTime == true)
