@@ -715,7 +715,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean ban " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -786,7 +786,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean find " + targetBanIt->first + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + targetBanIt->first + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -853,7 +853,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean fmove " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -931,7 +931,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean kick " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -984,7 +984,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean kill " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -1044,7 +1044,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean move " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -1120,7 +1120,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean ban " + pTarget->name + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + pTarget->name + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
@@ -1139,7 +1139,14 @@ private:
 		}
 
 		// add them to the ban database
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ { pTarget->name }, { pTarget->GUID }, { pTarget->ipAddress }, reasonMessage + " [" + pPlayer->name + "] [" + duration + "]", false, std::chrono::system_clock::now() + ParseDuration(duration) });
+		const std::chrono::system_clock::duration parsedDuration = ParseDuration(duration);
+		if (parsedDuration.count() == 0)
+		{
+			SendChatMessage("Failed to parse duration!", pPlayer);
+			return;
+		}
+
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ { pTarget->name }, { pTarget->GUID }, { pTarget->ipAddress }, reasonMessage + " [" + pPlayer->name + "] [" + duration + "]", false, std::chrono::system_clock::now() + parsedDuration });
 		AddBan(pBannedPlayer);
 
 		// save their ban
@@ -1191,7 +1198,7 @@ private:
 			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
 
 			// prompt the admin
-			SendChatMessage("Did you mean unban " + targetBanIt->first + " (fuzzy match)?", pPlayer);
+			SendChatMessage("Did you mean " + args[0] + ' ' + targetBanIt->first + " (fuzzy match)?", pPlayer);
 
 			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
 			return;
