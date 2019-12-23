@@ -7,6 +7,7 @@
 #include <fstream>
 #include <list>
 #include <memory>
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -66,6 +67,7 @@ public:
 		RegisterCommand("move", std::bind(&InGameAdmin::HandleMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("no", std::bind(&InGameAdmin::HandleNo, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("tban", std::bind(&InGameAdmin::HandleTBan, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("unban", std::bind(&InGameAdmin::HandleUnban, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("yes", std::bind(&InGameAdmin::HandleYes, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register handlers
@@ -815,6 +817,11 @@ private:
 		sendInfo(pBannedPlayer->names, "Names");
 		sendInfo(pBannedPlayer->guids, "GUIDs");
 		sendInfo(pBannedPlayer->ips, "IPs");
+
+		const time_t tm = std::chrono::system_clock::to_time_t(pBannedPlayer->expiry);
+		std::ostringstream oss;
+		oss << std::put_time(std::localtime(&tm), "Ban expiry: %Y-%m-%d %H:%M:%S");
+		SendChatMessage(oss.str());
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
@@ -1130,6 +1137,58 @@ private:
 
 		// tell everybody that they were banned
 		SendChatMessage("Player " + pTarget->name + " was BANNED (" + pBannedPlayer->reason + ")!");
+	}
+
+	void HandleUnban(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		if (IsAdmin(pPlayer) == false)
+		{
+			SendChatMessage("You must be admin to use this command!", pPlayer);
+			return;
+		}
+
+		if (args.size() < 2)
+		{
+			SendChatMessage("Usage: " + args[0] + " <playerName:string>", pPlayer);
+			return;
+		}
+
+		const std::string& playerName = args[1];
+
+		// check if the ban map is empty
+		if (m_bans.empty() == true)
+		{
+			SendChatMessage("There are no bans in the database!", pPlayer);
+			return;
+		}
+
+		// find the player's ban by name if it exists
+		const BanMap_t::const_iterator banIt = m_banNames.find(playerName);
+		if (banIt == m_banNames.end())
+		{
+			// they were not found, try to fuzzy match
+			const BanMap_t::const_iterator targetBanIt = std::min_element(m_banNames.begin(), m_banNames.end(),
+				[&playerName](const BanMap_t::value_type& left, const BanMap_t::value_type& right)
+			{
+				return LevenshteinDistance(playerName, left.first) < LevenshteinDistance(playerName, right.first);
+			});
+
+			std::vector<std::string> fuzzyArgs(args);
+			fuzzyArgs[1] = targetBanIt->first;
+
+			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
+
+			// prompt the admin
+			SendChatMessage("Did you mean unban " + targetBanIt->first + " (fuzzy match)?", pPlayer);
+
+			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
+			return;
+		}
+
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
+		RemoveBan(pBannedPlayer);
+
+		SendChatMessage("Player " + playerName + " was unbanned!", pPlayer);
 	}
 
 	void HandleYes(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
