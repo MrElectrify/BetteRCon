@@ -231,7 +231,7 @@ private:
 
 		// write the ban database size
 		std::vector<char> dbData(sizeof(uint32_t));
-		*reinterpret_cast<uint32_t*>(&dbData[0]) = m_banGUIDs.size();
+		*reinterpret_cast<uint32_t*>(&dbData[0]) = m_bans.size();
 
 		const auto writeString = [&dbData](const std::string& str)
 		{
