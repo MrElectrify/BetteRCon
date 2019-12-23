@@ -320,7 +320,7 @@ private:
 		else
 			banIt = guidBanIt;
 
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
+		const std::shared_ptr<BannedPlayer>& pBannedPlayer = banIt->second;
 
 		// see if they have a new name
 		if (nameBanIt == m_banNames.end())
