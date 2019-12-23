@@ -69,6 +69,7 @@ public:
 		RegisterCommand("yes", std::bind(&InGameAdmin::HandleYes, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register handlers
+		RegisterHandler("bettercon.endOfPBPlayerList", std::bind(&InGameAdmin::HandleOnEndOfPBPlayerList, this, std::placeholders::_1));
 		RegisterHandler("bettercon.playerPBConnected", std::bind(&InGameAdmin::HandleOnPlayerPBConnected, this, std::placeholders::_1));
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onLeave", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
@@ -97,6 +98,8 @@ private:
 	MoveQueue_t m_moveQueue;
 
 	FuzzyMatchMap_t m_lastFuzzyMatchMap;
+
+	bool m_checkedInGame = false;
 	
 	void ReadAdminDatabase()
 	{
@@ -599,22 +602,27 @@ private:
 		KickPlayer(playerIt->second, pBannedPlayer->reason);
 	}
 
-	void HandleOnPlayerInfo(const std::vector<std::string>& eventArgs)
+	void HandleOnEndOfPBPlayerList(const std::vector<std::string>& eventArgs)
 	{
+		if (m_checkedInGame == true)
+			return;
+
 		// check every player to make sure they are not banned
 		const PlayerMap_t& players = GetPlayers();
 		for (const PlayerMap_t::value_type& player : players)
 		{
-			if (player.second->ipAddress.empty() == false)
+			if (player.second->ipAddress.empty() == true)
 				continue;
 
 			const std::shared_ptr<BannedPlayer> pBannedPlayer = GetBannedPlayer(player.second);
 			if (pBannedPlayer == nullptr)
-				return;
+				continue;
 
 			// they are banned. kick them
 			KickPlayer(player.second, pBannedPlayer->reason);
 		}
+
+		m_checkedInGame = true;
 	}
 
 	void HandleOnKill(const std::vector<std::string>& eventArgs)
