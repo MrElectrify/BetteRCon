@@ -889,6 +889,7 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 	}
 	else if (pbMessage.find("End of Player List") != std::string::npos)
 	{
+		FireEvent({ "bettercon.endOfPBPlayerList" });
 		s_expectPlayerList = false;
 	}
 	else if (size_t nc = pbMessage.find("New Connection (slot #"); nc != std::string::npos)
@@ -901,6 +902,10 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 		const size_t endOfIpPos = pbMessage.find(':', ipPos);
 
 		const std::string& ip = pbMessage.substr(ipPos, endOfIpPos - ipPos);
+
+		const size_t endOfPortPos = pbMessage.find(' ', endOfIpPos);
+
+		const uint16_t port = std::stoi(pbMessage.substr(endOfIpPos + 1, endOfPortPos - endOfIpPos - 1));
 
 		// find their name
 		const size_t namePos = pbMessage.find('"', endOfIpPos);
@@ -923,6 +928,7 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 
 		// set their ip
 		playerIt->second->ipAddress = ip;
+		playerIt->second->port = port;
 
 		// fire an event
 		FireEvent({ "bettercon.playerPBConnected", name, ip });

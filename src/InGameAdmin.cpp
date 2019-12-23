@@ -599,6 +599,24 @@ private:
 		KickPlayer(playerIt->second, pBannedPlayer->reason);
 	}
 
+	void HandleOnPlayerInfo(const std::vector<std::string>& eventArgs)
+	{
+		// check every player to make sure they are not banned
+		const PlayerMap_t& players = GetPlayers();
+		for (const PlayerMap_t::value_type& player : players)
+		{
+			if (player.second->ipAddress.empty() == false)
+				continue;
+
+			const std::shared_ptr<BannedPlayer> pBannedPlayer = GetBannedPlayer(player.second);
+			if (pBannedPlayer == nullptr)
+				return;
+
+			// they are banned. kick them
+			KickPlayer(player.second, pBannedPlayer->reason);
+		}
+	}
+
 	void HandleOnKill(const std::vector<std::string>& eventArgs)
 	{
 		// process the queue
