@@ -546,6 +546,25 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 	m_playerInfoCallback(m_players, m_teams);
 }
 
+void Server::HandlePlayerJoinTimeout(const ErrorCode_t& ec, const std::shared_ptr<PlayerInfo>& pPlayer)
+{
+	// it was cancelled
+	if (ec)
+		return;
+
+	// find their timer
+	const PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.find(pPlayer->name);
+	// shouldn't happen
+	if (playerTimerIt == m_playerTimers.end())
+		return;
+
+	// cancel their timer and delete them
+	ErrorCode_t e;
+	playerTimerIt->second.second.cancel(e);
+
+	m_playerTimers.erase(playerTimerIt);
+}
+
 void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 {
 	// onAuthenticated means they successfully completed the client/server handshake, fb::online::OnlineClient::onConnected has been called, and they are connected. create a player for them
@@ -559,6 +578,22 @@ void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 	}
 	
 	const std::string& playerName = eventArgs[1];
+	
+	// see if they have a timer
+	const PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.find(playerName);
+	if (playerTimerIt != m_playerTimers.end())
+	{
+		// they joined, add them to the maps and cancel their timer
+		ErrorCode_t ec;
+		playerTimerIt->second.second.cancel(ec);
+		m_players.emplace(playerName, playerTimerIt->second.first);
+		AddPlayerToSquad(playerTimerIt->second.first, 0, 0);
+
+		m_playerTimers.erase(playerTimerIt);
+		return;
+	}
+
+	// make a new player
 	const std::shared_ptr<PlayerInfo>& pPlayer = m_players.emplace(playerName, std::make_shared<PlayerInfo>()).first->second;
 
 	pPlayer->name = playerName;
@@ -646,13 +681,48 @@ void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 	}
 }
 
+void Server::HandleOnJoin(const std::vector<std::string>& eventArgs)
+{
+	// find the player and their GUID
+	if (eventArgs.size() != 3)
+	{
+		// the server is not ok, disconnect
+		BetteRCon::Internal::g_stdErrLog << "OnJoin did not have 3 members: " << eventArgs.size() << '\n';
+		ErrorCode_t ec;
+		Disconnect(ec);
+		return;
+	}
+
+	const std::string& name = eventArgs[1];
+	const std::string& guid = eventArgs[2];
+
+	// see if they are already joining. cancel their timer if they are
+	PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.find(name);
+	if (playerTimerIt != m_playerTimers.end())
+	{
+		ErrorCode_t ec;
+		playerTimerIt->second.second.cancel(ec);
+	}
+	else
+		playerTimerIt = m_playerTimers.emplace(name, std::make_pair(std::make_shared<PlayerInfo>(), asio::steady_timer(m_worker))).first;
+
+	std::shared_ptr<PlayerInfo>& pPlayer = playerTimerIt->second.first;
+	pPlayer->name = name;
+	pPlayer->GUID = guid;
+	pPlayer->firstSeen = std::chrono::system_clock::now();
+
+	// start their timer
+	playerTimerIt->second.second.expires_from_now(std::chrono::minutes(2));
+	playerTimerIt->second.second.async_wait(std::bind(&Server::HandlePlayerJoinTimeout, this, std::placeholders::_1, pPlayer));
+}
+
 void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 {
 	// find both the killer and victim
 	if (eventArgs.size() != 5)
 	{
 		// the server is not ok, disconnect
-		BetteRCon::Internal::g_stdErrLog << "OnKill did not have 3 members: " << eventArgs.size() << '\n';
+		BetteRCon::Internal::g_stdErrLog << "OnKill did not have 5 members: " << eventArgs.size() << '\n';
 		ErrorCode_t ec;
 		Disconnect(ec);
 		return;
@@ -824,7 +894,49 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 	}
 	else if (pbMessage.find("End of Player List") != std::string::npos)
 	{
+		FireEvent({ "bettercon.endOfPBPlayerList" });
 		s_expectPlayerList = false;
+	}
+	else if (size_t nc = pbMessage.find("New Connection (slot #"); nc != std::string::npos)
+	{
+		// we have a new connection. find the player's IP and name
+		const size_t ipPos = pbMessage.find_first_of("123456789", nc + 24);
+		if (ipPos == std::string::npos)
+			return;
+
+		const size_t endOfIpPos = pbMessage.find(':', ipPos);
+
+		const std::string& ip = pbMessage.substr(ipPos, endOfIpPos - ipPos);
+
+		const size_t endOfPortPos = pbMessage.find(' ', endOfIpPos);
+
+		const uint16_t port = std::stoi(pbMessage.substr(endOfIpPos + 1, endOfPortPos - endOfIpPos - 1));
+
+		// find their name
+		const size_t namePos = pbMessage.find('"', endOfIpPos);
+		if (namePos == std::string::npos)
+			return;
+
+		const size_t endOfNamePos = pbMessage.find('"', namePos + 1);
+		if (endOfNamePos == std::string::npos)
+			return;
+
+		const std::string& name = pbMessage.substr(namePos + 1, endOfNamePos - namePos - 1);
+
+		// find the player
+		const PlayerMap_t::const_iterator playerIt = m_players.find(name);
+		if (playerIt == m_players.end())
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Punkbuster sent a new connection for a player that we don't have stored\n";
+			return;
+		}
+
+		// set their ip
+		playerIt->second->ipAddress = ip;
+		playerIt->second->port = port;
+
+		// fire an event
+		FireEvent({ "bettercon.playerPBConnected", name, ip });
 	}
 	else if (s_expectPlayerList == true)
 	{
@@ -1054,6 +1166,9 @@ void Server::InitializeServer()
 			this, std::placeholders::_1));
 	RegisterPrePluginCallback("player.onChat",
 		std::bind(&Server::HandleOnChat,
+			this, std::placeholders::_1));
+	RegisterPrePluginCallback("player.onJoin",
+		std::bind(&Server::HandleOnJoin,
 			this, std::placeholders::_1));
 	RegisterPrePluginCallback("player.onKill",
 		std::bind(&Server::HandleOnKill,

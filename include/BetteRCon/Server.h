@@ -124,6 +124,7 @@ namespace BetteRCon
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
 		using Packet_t = Internal::Packet;
 		using PlayerMap_t = std::unordered_map<std::string, std::shared_ptr<PlayerInfo>>;
+		using PlayerTimerMap_t = std::unordered_map<std::string, std::pair<std::shared_ptr<PlayerInfo>, asio::steady_timer>>;
 		// unordered map of teams, with val of unordered map of squads, with val of unordered map of playernames, with val of playerInfo ptr
 		using SquadMap_t = std::unordered_map<uint8_t, PlayerMap_t>;
 		struct Team
@@ -215,8 +216,11 @@ namespace BetteRCon
 		
 		void HandlePlayerInfo(const std::vector<std::string>& playerInfo);
 
+		void HandlePlayerJoinTimeout(const ErrorCode_t& ec, const std::shared_ptr<PlayerInfo>& pPlayer);
+
 		void HandleOnAuthenticated(const std::vector<std::string>& eventArgs);
 		void HandleOnChat(const std::vector<std::string>& eventArgs);
+		void HandleOnJoin(const std::vector<std::string>& eventArgs);
 		void HandleOnKill(const std::vector<std::string>& eventArgs);
 		void HandleOnLeave(const std::vector<std::string>& eventArgs);
 		void HandleOnSpawn(const std::vector<std::string>& eventArgs);
@@ -269,6 +273,7 @@ namespace BetteRCon
 		// player info
 		// we store as shared_ptrs with redundancy because we want fast accessing of teams and squads, as well as easy traversal of all players
 		PlayerMap_t m_players;
+		PlayerTimerMap_t m_playerTimers;
 		TeamMap_t m_teams;
 		asio::steady_timer m_playerInfoTimer;
 		asio::steady_timer m_punkbusterPlayerListTimer;
