@@ -52,6 +52,7 @@ public:
 
 		// register commands
 		RegisterCommand("ban", std::bind(&InGameAdmin::HandleBan, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("find", std::bind(&InGameAdmin::HandleFind, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("fmove", std::bind(&InGameAdmin::HandleForceMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("kick", std::bind(&InGameAdmin::HandleKick, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("kill", std::bind(&InGameAdmin::HandleKill, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
@@ -602,6 +603,11 @@ private:
 
 		// tell everybody that they were banned
 		SendChatMessage("Player " + pTarget->name + " was BANNED (" + pBannedPlayer->reason + ")!");
+	}
+
+	void HandleFind(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+		
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
