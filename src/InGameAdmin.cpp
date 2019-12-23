@@ -28,14 +28,15 @@ public:
 	using AdminMap_t = std::unordered_map<std::string, std::shared_ptr<Admin>>;
 	struct BannedPlayer
 	{
-		std::string name;
-		std::string guid;
-		std::string ip;
+		std::vector<std::string> names;
+		std::vector<std::string> guids;
+		std::vector<std::string> ips;
 		std::string reason;
 		bool perm;
 		std::chrono::system_clock::time_point expiry;
 	};
 	using BanMap_t = std::unordered_map<std::string, std::shared_ptr<BannedPlayer>>;
+	using BanSet_t = std::unordered_set<std::shared_ptr<BannedPlayer>>;
 	using ChatHandlerMap_t = std::unordered_map<std::string, std::function<void(const std::string& playerName, const std::vector<std::string>& args)>>;
 	using MoveQueue_t = std::list<std::pair<std::string, std::string>>;
 	using PlayerInfo_t = BetteRCon::Server::PlayerInfo;
@@ -69,7 +70,6 @@ public:
 
 		// register handlers
 		RegisterHandler("bettercon.playerPBConnected", std::bind(&InGameAdmin::HandleOnPlayerPBConnected, this, std::placeholders::_1));
-		RegisterHandler("player.onAuthenticated", std::bind(&InGameAdmin::HandleOnAuthenticated, this, std::placeholders::_1));
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onLeave", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onTeamChange", std::bind(&InGameAdmin::HandleOnTeamSwitch, this, std::placeholders::_1));
@@ -91,6 +91,7 @@ private:
 	BanMap_t m_banNames;
 	BanMap_t m_banGUIDs;
 	BanMap_t m_banIPs;
+	BanSet_t m_bans;
 
 	MoveQueue_t m_forceMoveQueue;
 	MoveQueue_t m_moveQueue;
@@ -172,6 +173,20 @@ private:
 			return res;
 		};
 		
+		const auto readStrVec = [&dbFile, &offset, &readString]() -> std::vector<std::string>
+		{
+			// read the vector size
+			const uint32_t vecLen = *reinterpret_cast<uint32_t*>(&dbFile[offset]);
+			offset += sizeof(uint32_t);
+
+			// read each string
+			std::vector<std::string> res;
+			for (uint32_t i = 0; i < vecLen; ++i)
+				res.push_back(readString());
+
+			return res;
+		};
+		
 		for (uint32_t i = 0; i < banCount; ++i)
 		{
 			// naive bounds check
@@ -181,9 +196,9 @@ private:
 				return;
 			}
 
-			const std::string name = readString();
-			const std::string guid = readString();
-			const std::string ip = readString();
+			const std::vector<std::string> names = readStrVec();
+			const std::vector<std::string> guids = readStrVec();
+			const std::vector<std::string> ips = readStrVec();
 			const std::string reason = readString();
 
 			const bool perm = static_cast<bool>(dbFile[offset]);
@@ -198,11 +213,8 @@ private:
 				return;
 
 			// add the ban to the databases
-			std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ std::move(name), std::move(guid), std::move(ip), std::move(reason), perm, tp });
-
-			m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
-			m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
-			m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
+			std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ std::move(names), std::move(guids), std::move(ips), std::move(reason), perm, tp });
+			AddBan(std::move(pBannedPlayer));
 		}
 
 		inFile.close();
@@ -226,14 +238,23 @@ private:
 			dbData.insert(dbData.end(), str.begin(), str.end());
 		};
 
-		// write each ban
-		for (const BanMap_t::value_type& banPair : m_banGUIDs)
+		const auto writeStrVec = [&dbData, &writeString](const std::vector<std::string>& vec)
 		{
-			const std::shared_ptr<BannedPlayer> pBannedPlayer = banPair.second;
+			// write the size
+			dbData.resize(dbData.size() + sizeof(uint32_t));
+			*reinterpret_cast<uint32_t*>(&dbData[dbData.size() - sizeof(uint32_t)]) = vec.size();
 
-			writeString(pBannedPlayer->name);
-			writeString(pBannedPlayer->guid);
-			writeString(pBannedPlayer->ip);
+			// write each string
+			for (const std::string& str : vec)
+				writeString(str);
+		};
+
+		// write each ban
+		for (const BanSet_t::value_type& pBannedPlayer : m_bans)
+		{
+			writeStrVec(pBannedPlayer->names);
+			writeStrVec(pBannedPlayer->guids);
+			writeStrVec(pBannedPlayer->ips);
 			writeString(pBannedPlayer->reason);
 
 			dbData.push_back(pBannedPlayer->perm);
@@ -252,6 +273,56 @@ private:
 	{
 		return (m_adminNames.find(pPlayer->name) != m_adminNames.end() ||
 			m_adminGUIDs.find(pPlayer->GUID) != m_adminGUIDs.end());
+	}
+	std::shared_ptr<BannedPlayer> GetBannedPlayer(const std::shared_ptr<PlayerInfo_t>& pPlayer)
+	{
+		// check to see if they are banned by GUID or IP
+		const BanMap_t::const_iterator guidBanIt = m_banGUIDs.find(pPlayer->GUID);
+		const BanMap_t::const_iterator ipBanIt = m_banIPs.find(pPlayer->ipAddress);
+		BanMap_t::const_iterator banIt;
+
+		// see if they are not banned
+		if (guidBanIt == m_banGUIDs.end() &&
+			ipBanIt == m_banIPs.end())
+			return nullptr;
+
+		// see if they are only in one
+		if (guidBanIt == m_banGUIDs.end() ^
+			ipBanIt == m_banIPs.end())
+		{
+			if (guidBanIt == m_banGUIDs.end())
+			{
+				// new GUID with an IP link. add the GUID to their ban and the GUID map
+				ipBanIt->second->guids.push_back(pPlayer->GUID);
+				m_banGUIDs.emplace(pPlayer->GUID, ipBanIt->second);
+				banIt = ipBanIt;
+			}
+			else if (ipBanIt == m_banIPs.end())
+			{
+				// new IP with a GUID link. add the IP to their ban and the IP map
+				guidBanIt->second->ips.push_back(pPlayer->ipAddress);
+				m_banIPs.emplace(pPlayer->ipAddress, guidBanIt->second);
+				banIt = guidBanIt;
+			}
+			// save the database with the changes
+			WriteBanDatabase();
+		}
+		else
+			banIt = guidBanIt;
+
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
+
+		// we have their banned and they are banned. make sure it hasn't expired
+		if (pBannedPlayer->perm == false &&
+			std::chrono::system_clock::now() >= pBannedPlayer->expiry)
+		{
+			// their ban expired. remove it
+			RemoveBan(pBannedPlayer);
+			return nullptr;
+		}
+		
+		// nice ban dude
+		return pBannedPlayer;
 	}
 
 	// Credits to AdKats and those who Col gave credit to
@@ -435,6 +506,64 @@ private:
 		}
 	}
 
+	void AddBan(const std::shared_ptr<BannedPlayer>& pBannedPlayer)
+	{
+		// add them for every linked name
+		for (const std::string& name : pBannedPlayer->names)
+			m_banNames.emplace(name, pBannedPlayer);
+		// and every linked GUID
+		for (const std::string& guid : pBannedPlayer->guids)
+			m_banGUIDs.emplace(guid, pBannedPlayer);
+		// and every linked IP
+		for (const std::string& ip : pBannedPlayer->ips)
+			m_banIPs.emplace(ip, pBannedPlayer);
+
+		// and add them to the ban set
+		m_bans.emplace(pBannedPlayer);
+	}
+	void AddBan(std::shared_ptr<BannedPlayer>&& pBannedPlayer)
+	{
+		// add them for every linked name
+		for (const std::string& name : pBannedPlayer->names)
+			m_banNames.emplace(name, pBannedPlayer);
+		// and every linked GUID
+		for (const std::string& guid : pBannedPlayer->guids)
+			m_banGUIDs.emplace(guid, pBannedPlayer);
+		// and every linked IP
+		for (const std::string& ip : pBannedPlayer->ips)
+			m_banIPs.emplace(ip, pBannedPlayer);
+
+		// and add them to the ban set
+		m_bans.emplace(std::move(pBannedPlayer));
+	}
+	void RemoveBan(const std::shared_ptr<BannedPlayer>& pBannedPlayer)
+	{
+		// remove all of their names, guids, and IPs
+		for (const std::string& name : pBannedPlayer->names)
+		{
+			const BanMap_t::iterator nameBanIt = m_banNames.find(name);
+			if (nameBanIt != m_banNames.end())
+				m_banNames.erase(nameBanIt);
+		}
+		
+		for (const std::string& guid : pBannedPlayer->guids)
+		{
+			const BanMap_t::iterator guidBanIt = m_banGUIDs.find(guid);
+			if (guidBanIt != m_banGUIDs.end())
+				m_banGUIDs.erase(guidBanIt);
+		}
+
+		for (const std::string& ip : pBannedPlayer->ips)
+		{
+			const BanMap_t::iterator ipBanIt = m_banIPs.find(ip);
+			if (ipBanIt != m_banIPs.end())
+				m_banIPs.erase(ipBanIt);
+		}
+
+		WriteBanDatabase();
+	}
+
+	// we have their IP here, we can check again based on IP links
 	void HandleOnPlayerPBConnected(const std::vector<std::string>& eventArgs)
 	{
 		if (eventArgs.size() != 3)
@@ -449,84 +578,15 @@ private:
 		if (playerIt == players.end())
 			return;
 		
-		// see if we can find the player's ip
-		const std::string& ip = eventArgs[2];
+		// get their ban
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = GetBannedPlayer(playerIt->second);
 		
-		const BanMap_t::iterator& ipBanIt = m_banIPs.find(ip);
-		if (ipBanIt == m_banIPs.end())
+		// they aren't banned
+		if (pBannedPlayer == nullptr)
 			return;
-
-		// see if their ban expired
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = ipBanIt->second;
-
-		// see if the ban is still valid
-		if (pBannedPlayer->perm == false &&
-			std::chrono::system_clock::now() >= pBannedPlayer->expiry)
-		{
-			// the ban expired. find their IP and name ban
-			const BanMap_t::iterator guidBanIt = m_banGUIDs.find(pBannedPlayer->guid);
-			if (guidBanIt != m_banGUIDs.end())
-				m_banGUIDs.erase(guidBanIt);
-
-			const BanMap_t::iterator nameBanIt = m_banNames.find(pBannedPlayer->name);
-			if (nameBanIt != m_banNames.end())
-				m_banNames.erase(nameBanIt);
-
-			m_banIPs.erase(ipBanIt);
-
-			WriteBanDatabase();
-		}
 
 		// they are banned. kick them
-		KickPlayer(playerIt->second, ipBanIt->second->reason);
-	}
-
-	void HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
-	{
-		if (eventArgs.size() != 2)
-			return;
-
-		const std::string& player = eventArgs[1];
-
-		// find their player
-		const PlayerMap_t& players = GetPlayers();
-
-		const PlayerMap_t::const_iterator playerIt = players.find(player);
-		// this shouldn't happen
-		if (playerIt == players.end())
-			return;
-		
-		const std::shared_ptr<PlayerInfo_t>& pPlayer = playerIt->second;
-
-		const std::string& guid = pPlayer->GUID;
-
-		// check to see if their GUID matches a ban
-		const BanMap_t::iterator banIt = m_banGUIDs.find(guid);
-		if (banIt == m_banGUIDs.end())
-			return;
-
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
-
-		// see if the ban is still valid
-		if (pBannedPlayer->perm == false &&
-			std::chrono::system_clock::now() >= pBannedPlayer->expiry)
-		{
-			// the ban expired. find their IP and name ban
-			const BanMap_t::iterator ipBanIt = m_banIPs.find(pBannedPlayer->ip);
-			if (ipBanIt != m_banIPs.end())
-				m_banIPs.erase(ipBanIt);
-
-			const BanMap_t::iterator nameBanIt = m_banNames.find(pBannedPlayer->name);
-			if (nameBanIt != m_banNames.end())
-				m_banNames.erase(nameBanIt);
-
-			m_banGUIDs.erase(banIt);
-			
-			WriteBanDatabase();
-		}
-
-		// they are banned. kick them
-		KickPlayer(pPlayer, banIt->second->reason);
+		KickPlayer(playerIt->second, pBannedPlayer->reason);
 	}
 
 	void HandleOnKill(const std::vector<std::string>& eventArgs)
@@ -628,11 +688,8 @@ private:
 		}
 
 		// add them to the ban database
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ pTarget->name, pTarget->GUID, pTarget->ipAddress, reasonMessage + " [" + pPlayer->name + "] [perm]", true, {} });
-		
-		m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
-		m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
-		m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ { pTarget->name }, { pTarget->GUID }, { pTarget->ipAddress }, reasonMessage + " [" + pPlayer->name + "] [perm]", true, {} });
+		AddBan(pBannedPlayer);
 
 		// save their ban
 		WriteBanDatabase();
@@ -645,6 +702,45 @@ private:
 
 	void HandleFind(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
+		if (args.size() < 2)
+		{
+			SendChatMessage("Usage: " + args[0] + " <playerName:string>", pPlayer);
+			return;
+		}
+
+		const std::string& playerName = args[1];
+		
+		// check if the ban map is empty
+		if (m_bans.empty() == true)
+		{
+			SendChatMessage("There are no bans in the database!", pPlayer);
+			return;
+		}
+
+		// find the player's ban by name if it exists
+		const BanMap_t::const_iterator banIt = m_banNames.find(playerName);
+		if (banIt == m_banNames.end())
+		{
+			// they were not found, try to fuzzy match
+			const BanMap_t::const_iterator targetBanIt = std::min_element(m_banNames.begin(), m_banNames.end(),
+				[&playerName](const BanMap_t::value_type& left, const BanMap_t::value_type& right)
+			{
+				return LevenshteinDistance(playerName, left.first) < LevenshteinDistance(playerName, right.first);
+			});
+
+			std::vector<std::string> fuzzyArgs(args);
+			fuzzyArgs[1] = targetBanIt->first;
+
+			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
+
+			// prompt the admin
+			SendChatMessage("Did you mean find " + targetBanIt->first + " (fuzzy match)?", pPlayer);
+
+			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
+			return;
+		}
+
+		// we found the player. send information about the ban
 		
 	}
 
@@ -951,11 +1047,8 @@ private:
 		}
 
 		// add them to the ban database
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ pTarget->name, pTarget->GUID, pTarget->ipAddress, reasonMessage + " [" + pPlayer->name + "] [" + duration + "]", false, std::chrono::system_clock::now() + ParseDuration(duration) });
-
-		m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
-		m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
-		m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ { pTarget->name }, { pTarget->GUID }, { pTarget->ipAddress }, reasonMessage + " [" + pPlayer->name + "] [" + duration + "]", false, std::chrono::system_clock::now() + ParseDuration(duration) });
+		AddBan(pBannedPlayer);
 
 		// save their ban
 		WriteBanDatabase();

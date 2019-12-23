@@ -898,7 +898,7 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 		if (ipPos == std::string::npos)
 			return;
 
-		const size_t endOfIpPos = pbMessage.find(' ', ipPos);
+		const size_t endOfIpPos = pbMessage.find(':', ipPos);
 
 		const std::string& ip = pbMessage.substr(ipPos, endOfIpPos - ipPos);
 
@@ -912,6 +912,17 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 			return;
 
 		const std::string& name = pbMessage.substr(namePos + 1, endOfNamePos - namePos - 1);
+
+		// find the player
+		const PlayerMap_t::const_iterator playerIt = m_players.find(name);
+		if (playerIt == m_players.end())
+		{
+			BetteRCon::Internal::g_stdErrLog << "ERROR: Punkbuster sent a new connection for a player that we don't have stored\n";
+			return;
+		}
+
+		// set their ip
+		playerIt->second->ipAddress = ip;
 
 		// fire an event
 		FireEvent({ "bettercon.playerPBConnected", name, ip });
