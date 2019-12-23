@@ -821,10 +821,17 @@ private:
 		sendInfo(pBannedPlayer->guids, "GUIDs");
 		sendInfo(pBannedPlayer->ips, "IPs");
 
-		const time_t tm = std::chrono::system_clock::to_time_t(pBannedPlayer->expiry);
-		std::ostringstream oss;
-		oss << std::put_time(std::localtime(&tm), "Ban expiry: %Y-%m-%d %H:%M:%S");
-		SendChatMessage(oss.str());
+		if (pBannedPlayer->perm == true)
+		{
+			SendChatMessage("Ban expiry: perm", pPlayer);
+		}
+		else
+		{
+			const time_t tm = std::chrono::system_clock::to_time_t(pBannedPlayer->expiry);
+			std::ostringstream oss;
+			oss << std::put_time(std::localtime(&tm), "Ban expiry: %Y-%m-%d %H:%M:%S");
+			SendChatMessage(oss.str(), pPlayer);
+		}
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
