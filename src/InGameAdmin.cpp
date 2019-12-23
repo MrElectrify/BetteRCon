@@ -279,12 +279,14 @@ private:
 		// check to see if they are banned by GUID or IP
 		const BanMap_t::const_iterator guidBanIt = m_banGUIDs.find(pPlayer->GUID);
 		const BanMap_t::const_iterator ipBanIt = m_banIPs.find(pPlayer->ipAddress);
-		BanMap_t::const_iterator banIt;
 
 		// see if they are not banned
 		if (guidBanIt == m_banGUIDs.end() &&
 			ipBanIt == m_banIPs.end())
 			return nullptr;
+
+		const BanMap_t::const_iterator nameBanIt = m_banNames.find(pPlayer->name);
+		BanMap_t::const_iterator banIt;
 
 		// see if they are only in one
 		if (guidBanIt == m_banGUIDs.end() ^
@@ -311,6 +313,14 @@ private:
 			banIt = guidBanIt;
 
 		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
+
+		// see if they have a new name
+		if (nameBanIt == m_banNames.end())
+		{
+			banIt->second->names.push_back(pPlayer->name);
+			m_banNames.emplace(pPlayer->name, pBannedPlayer);
+			WriteBanDatabase();
+		}
 
 		// we have their banned and they are banned. make sure it hasn't expired
 		if (pBannedPlayer->perm == false &&
