@@ -282,8 +282,11 @@ private:
 			m_adminGUIDs.find(pPlayer->GUID) != m_adminGUIDs.end());
 	}
 
-	std::shared_ptr<BannedPlayer> GetBannedPlayer(const std::shared_ptr<PlayerInfo_t>& pPlayer)
+	const std::shared_ptr<BannedPlayer>& GetBannedPlayer(const std::shared_ptr<PlayerInfo_t>& pPlayer)
 	{
+		// static null bannedPlayer
+		static const std::shared_ptr<BannedPlayer> pNullPlayer;
+
 		// check to see if they are banned by GUID or IP
 		const BanMap_t::const_iterator guidBanIt = m_banGUIDs.find(pPlayer->GUID);
 		const BanMap_t::const_iterator ipBanIt = m_banIPs.find(pPlayer->ipAddress);
@@ -291,7 +294,7 @@ private:
 		// see if they are not banned
 		if (guidBanIt == m_banGUIDs.end() &&
 			ipBanIt == m_banIPs.end())
-			return nullptr;
+			return pNullPlayer;
 
 		const BanMap_t::const_iterator nameBanIt = m_banNames.find(pPlayer->name);
 		BanMap_t::const_iterator banIt;
@@ -336,7 +339,7 @@ private:
 		{
 			// their ban expired. remove it
 			RemoveBan(pBannedPlayer);
-			return nullptr;
+			return pNullPlayer;
 		}
 		
 		// nice ban dude
@@ -602,7 +605,7 @@ private:
 			return;
 		
 		// get their ban
-		const std::shared_ptr<BannedPlayer> pBannedPlayer = GetBannedPlayer(playerIt->second);
+		const std::shared_ptr<BannedPlayer>& pBannedPlayer = GetBannedPlayer(playerIt->second);
 		
 		// they aren't banned
 		if (pBannedPlayer == nullptr)
@@ -624,7 +627,7 @@ private:
 			if (player.second->ipAddress.empty() == true)
 				continue;
 
-			const std::shared_ptr<BannedPlayer> pBannedPlayer = GetBannedPlayer(player.second);
+			const std::shared_ptr<BannedPlayer>& pBannedPlayer = GetBannedPlayer(player.second);
 			if (pBannedPlayer == nullptr)
 				continue;
 
