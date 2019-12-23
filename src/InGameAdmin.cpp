@@ -56,7 +56,7 @@ public:
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
 	virtual std::string_view GetPluginName() const { return "InGameAdmin"; }
-	virtual std::string_view GetPluginVersion() const { return "v1.0.0"; }
+	virtual std::string_view GetPluginVersion() const { return "v1.0.1"; }
 
 	virtual void Enable() { Plugin::Enable(); ReadAdminDatabase(); }
 
