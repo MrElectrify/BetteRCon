@@ -738,6 +738,12 @@ private:
 
 	void HandleFind(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
+		if (IsAdmin(pPlayer) == false)
+		{
+			SendChatMessage("You must be admin to use this command!", pPlayer);
+			return;
+		}
+
 		if (args.size() < 2)
 		{
 			SendChatMessage("Usage: " + args[0] + " <playerName:string>", pPlayer);
@@ -776,8 +782,31 @@ private:
 			return;
 		}
 
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = banIt->second;
 		// we found the player. send information about the ban
-		
+		const auto sendInfo = [this, &pPlayer](const std::vector<std::string>& field, const std::string& fieldName)
+		{
+			std::string fields;
+			for (size_t i = 0; i < field.size(); ++i)
+			{
+				// don't overflow
+				if (fields.size() >= 128 - (fieldName.size() + sizeof(": ") - 1))
+				{
+					SendChatMessage(fieldName + ": " + fields, pPlayer);
+					fields.clear();
+				}
+				fields += field[i];
+
+				if (i != field.size() - 1)
+					fields += ", ";
+			}
+
+			SendChatMessage(fieldName + ": " + fields, pPlayer);
+		};
+
+		sendInfo(pBannedPlayer->names, "Names");
+		sendInfo(pBannedPlayer->guids, "GUIDs");
+		sendInfo(pBannedPlayer->ips, "IPs");
 	}
 
 	void HandleForceMove(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
