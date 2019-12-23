@@ -2,6 +2,7 @@
 
 // STL
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <fstream>
 #include <list>
@@ -43,6 +44,11 @@ public:
 	using ServerInfo_t = BetteRCon::Server::ServerInfo;
 	using SquadMap_t = BetteRCon::Server::SquadMap_t;
 	using Team_t = BetteRCon::Server::Team;
+
+	using Hours_t = std::chrono::hours;
+	using Days_t = std::chrono::duration<int, std::ratio_multiply<std::ratio<24>, Hours_t::period>>;
+	using Weeks_t = std::chrono::duration<int, std::ratio_multiply<std::ratio<7>, Days_t::period>>;
+	using Months_t = std::chrono::duration<int, std::ratio_multiply<std::ratio<30>, Days_t::period>>;
 
 	InGameAdmin(BetteRCon::Server* pServer)
 		: Plugin(pServer)
@@ -395,6 +401,37 @@ private:
 
 			// remove the player from the queue
 			m_forceMoveQueue.erase(m_forceMoveQueue.begin());
+		}
+	}
+
+	std::chrono::system_clock::duration ParseDuration(const std::string& durationStr)
+	{
+		// parse the duration
+		const char durationType = durationStr.back();
+		int32_t durationCoefficient;
+		try
+		{
+			durationCoefficient = std::stoi(durationStr.substr(0, durationStr.size() - 1));
+		}
+		catch (const std::exception&)
+		{
+			BetteRCon::Internal::g_stdErrLog << "[InGameAdmin] Failed to parse duration coefficient: " << durationStr.substr(0, durationStr.size() - 1) << '\n';
+			return {};
+		}
+
+		switch (durationType)
+		{
+		case 'h':
+			return Hours_t(durationCoefficient);
+		case 'd':
+			return Days_t(durationCoefficient);
+		case 'w':
+			return Weeks_t(durationCoefficient);
+		case 'm':
+			return Months_t(durationCoefficient);
+		default:
+			BetteRCon::Internal::g_stdErrLog << "[InGameAdmin] Failed to parse duration type: " << durationType << '\n';
+			return {};
 		}
 	}
 
@@ -860,7 +897,73 @@ private:
 
 	void HandleTBan(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
 	{
+		if (IsAdmin(pPlayer) == false)
+		{
+			SendChatMessage("You must be admin to use this command!", pPlayer);
+			return;
+		}
 
+		// they obviously don't want to kick themselves, notify them of incorrect usage
+		if (args.size() < 3)
+		{
+			SendChatMessage("Usage: " + args[0] + " <playerName:string> <length:length>", pPlayer);
+			return;
+		}
+
+		const std::string& targetPlayer = args[1];
+		const std::string& duration = args[2];
+
+		const PlayerMap_t& players = GetPlayers();
+
+		// try to find the player first
+		const PlayerMap_t::const_iterator targetIt = players.find(targetPlayer);
+		if (targetIt == players.end())
+		{
+			// find a fuzzy match
+			const std::shared_ptr<PlayerInfo_t>& pTarget = std::min_element(players.begin(), players.end(),
+				[&targetPlayer](const PlayerMap_t::value_type& left, const PlayerMap_t::value_type& right)
+			{
+				return LevenshteinDistance(targetPlayer, left.second->name) < LevenshteinDistance(targetPlayer, right.second->name);
+			})->second;
+
+			std::vector<std::string> fuzzyArgs(args);
+			fuzzyArgs[1] = pTarget->name;
+
+			const std::pair<const std::vector<std::string>, const char> fuzzyMatch = std::make_pair(std::move(fuzzyArgs), prefix);
+
+			// prompt the admin
+			SendChatMessage("Did you mean ban " + pTarget->name + " (fuzzy match)?", pPlayer);
+
+			m_lastFuzzyMatchMap.emplace(pPlayer->name, std::move(fuzzyMatch));
+			return;
+		}
+
+		const std::shared_ptr<PlayerInfo_t>& pTarget = targetIt->second;
+
+		std::string reasonMessage;
+		// construct the reason
+		for (size_t i = 2; i < args.size(); ++i)
+		{
+			reasonMessage.append(args[i]);
+
+			if (i != args.size() - 1)
+				reasonMessage.push_back(' ');
+		}
+
+		// add them to the ban database
+		const std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ pTarget->name, pTarget->GUID, pTarget->ipAddress, reasonMessage + " [" + pPlayer->name + "] [" + duration + "]", false, std::chrono::system_clock::now() + ParseDuration(duration) });
+
+		m_banNames.emplace(pBannedPlayer->name, pBannedPlayer);
+		m_banGUIDs.emplace(pBannedPlayer->guid, pBannedPlayer);
+		m_banIPs.emplace(pBannedPlayer->ip, std::move(pBannedPlayer));
+
+		// save their ban
+		WriteBanDatabase();
+
+		KickPlayer(pTarget, pBannedPlayer->reason);
+
+		// tell everybody that they were banned
+		SendChatMessage("Player " + pTarget->name + " was BANNED (" + pBannedPlayer->reason + ")!");
 	}
 
 	void HandleYes(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
