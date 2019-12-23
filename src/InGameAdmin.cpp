@@ -349,6 +349,12 @@ private:
 
 		const std::shared_ptr<PlayerInfo_t>& pTarget = targetIt->second;
 
+		if (pTarget->type != PlayerInfo_t::TYPE_Player)
+		{
+			SendChatMessage("Player " + pTarget->name + " is not a player!", pPlayer);
+			return;
+		}
+
 		const ServerInfo_t& serverInfo = GetServerInfo();
 		const std::vector<int32_t>& teamScores = serverInfo.m_scores.m_teamScores;
 
@@ -533,6 +539,12 @@ private:
 		}
 
 		const std::shared_ptr<PlayerInfo_t>& pTarget = targetIt->second;
+
+		if (pTarget->type != PlayerInfo_t::TYPE_Player)
+		{
+			SendChatMessage("Player " + pTarget->name + " is not a player!", pPlayer);
+			return;
+		}
 
 		// add them to the move queue
 		m_moveQueue.push_back(std::make_pair(pPlayer->name, pTarget->name));
