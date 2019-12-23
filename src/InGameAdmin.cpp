@@ -213,7 +213,7 @@ private:
 			// see if the ban already expired
 			if (perm == false &&
 				std::chrono::system_clock::now() >= tp)
-				return;
+				continue;
 
 			// add the ban to the databases
 			std::shared_ptr<BannedPlayer> pBannedPlayer = std::make_shared<BannedPlayer>(BannedPlayer{ std::move(names), std::move(guids), std::move(ips), std::move(reason), perm, tp });
@@ -221,6 +221,8 @@ private:
 		}
 
 		inFile.close();
+		// write the database to reflect removed bans
+		WriteBanDatabase();
 	}
 	void WriteBanDatabase() 
 	{
@@ -277,6 +279,7 @@ private:
 		return (m_adminNames.find(pPlayer->name) != m_adminNames.end() ||
 			m_adminGUIDs.find(pPlayer->GUID) != m_adminGUIDs.end());
 	}
+
 	std::shared_ptr<BannedPlayer> GetBannedPlayer(const std::shared_ptr<PlayerInfo_t>& pPlayer)
 	{
 		// check to see if they are banned by GUID or IP
@@ -572,6 +575,11 @@ private:
 			if (ipBanIt != m_banIPs.end())
 				m_banIPs.erase(ipBanIt);
 		}
+
+		// remove their ban from the set
+		const BanSet_t::iterator banIt = m_bans.find(pBannedPlayer);
+		if (banIt != m_bans.end())
+			m_bans.erase(banIt);
 
 		WriteBanDatabase();
 	}
@@ -1103,7 +1111,7 @@ private:
 
 		std::string reasonMessage;
 		// construct the reason
-		for (size_t i = 2; i < args.size(); ++i)
+		for (size_t i = 3; i < args.size(); ++i)
 		{
 			reasonMessage.append(args[i]);
 
