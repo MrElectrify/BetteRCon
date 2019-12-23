@@ -58,6 +58,7 @@ public:
 		RegisterCommand("kill", std::bind(&InGameAdmin::HandleKill, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("move", std::bind(&InGameAdmin::HandleMove, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("no", std::bind(&InGameAdmin::HandleNo, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+		RegisterCommand("tban", std::bind(&InGameAdmin::HandleTBan, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		RegisterCommand("yes", std::bind(&InGameAdmin::HandleYes, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 		// register handlers
@@ -855,6 +856,11 @@ private:
 
 		// cancel their active fuzzy match
 		m_lastFuzzyMatchMap.erase(fuzzyMatchIt);
+	}
+
+	void HandleTBan(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
+	{
+
 	}
 
 	void HandleYes(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
