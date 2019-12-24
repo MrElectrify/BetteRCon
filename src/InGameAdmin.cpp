@@ -145,7 +145,7 @@ private:
 
 		// write each admin
 		for (const AdminMap_t::value_type& adminName : m_adminNames)
-			outFile << adminName.first << ',' << adminName.second->guid;
+			outFile << adminName.first << ',' << adminName.second->guid << '\n';
 
 		outFile.close();
 	}
