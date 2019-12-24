@@ -76,6 +76,7 @@ public:
 		RegisterHandler("player.onKill", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onLeave", std::bind(&InGameAdmin::HandleOnKill, this, std::placeholders::_1));
 		RegisterHandler("player.onTeamChange", std::bind(&InGameAdmin::HandleOnTeamSwitch, this, std::placeholders::_1));
+		RegisterHandler("server.onLevelLoaded", std::bind(&InGameAdmin::HandleOnLevelLoaded, this, std::placeholders::_1));
 	}
 
 	virtual std::string_view GetPluginAuthor() const { return "MrElectrify"; }
@@ -109,6 +110,10 @@ private:
 		std::ifstream inFile("plugins/Admins.cfg");
 		if (inFile.good() == false)
 			return;
+
+		// clear the previous list
+		m_adminGUIDs.clear();
+		m_adminNames.clear();
 
 		// read each admin
 		std::string adminLine;
@@ -680,6 +685,12 @@ private:
 
 		CheckQueue(m_forceMoveQueue);
 		CheckQueue(m_moveQueue);
+	}
+
+	void HandleOnLevelLoaded(const std::vector<std::string>& eventArgs)
+	{
+		// read the admin database
+		ReadAdminDatabase();
 	}
 
 	void HandleBan(const std::shared_ptr<PlayerInfo_t>& pPlayer, const std::vector<std::string>& args, const char prefix)
