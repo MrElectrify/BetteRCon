@@ -1091,7 +1091,11 @@ void Server::LoadPlugins()
 
 		if (hPlugin == nullptr)
 		{
+#ifdef _WIN32
 			m_pluginCallback(pathStr, true, false, "Failed to open file: " + std::to_string(GetLastError()));
+#elif __linux__
+			m_pluginCallback(pathStr, true, false, "Failed to open file: " + std::string(dlerror()));
+#endif
 			continue;
 		}
 
