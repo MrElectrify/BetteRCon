@@ -174,9 +174,6 @@ namespace BetteRCon
 		// Gets team squad
 		virtual const PlayerMap_t& GetSquad(const uint8_t teamId, const uint8_t squadId) const noexcept;
 
-		// Gets the last error code, which will tell why the server disconnected if it did
-		ErrorCode_t GetLastErrorCode() const noexcept;
-
 		// Attempts to send a command to the server, and calls recvCallback when the response is received.
 		// RecvCallback_t must not block, as it is called from the worker thread
 		virtual void SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback);

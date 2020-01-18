@@ -170,11 +170,6 @@ int main(int argc, char* argv[])
 
 		// close the connection
 		server.Disconnect();
-
-		if (auto e = server.GetLastErrorCode())
-		{
-			BetteRCon::Internal::g_stdErrLog << "Error on exit: " << e.message() << '\n';
-		}
 	}
 
 	BetteRCon::Internal::g_stdOutLog << "Testing complete\n";
