@@ -12,6 +12,7 @@
 // STL
 #include <functional>
 #include <mutex>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -258,8 +259,6 @@ namespace BetteRCon
 		Worker_t& m_worker;
 		Connection_t m_connection;
 
-		std::mutex m_connectionMutex;
-
 		EventCallbackMap_t m_prePluginEventCallbacks;
 		EventCallbackMap_t m_postPluginEventCallbacks;
 
@@ -271,7 +270,6 @@ namespace BetteRCon
 		void HandleServerInfoTimerExpire(const ErrorCode_t& ec);
 
 		// callbacks
-		DisconnectCallback_t m_disconnectCallback;
 		EventCallback_t m_eventCallback;
 		FinishedLoadingPluginsCallback_t m_finishedLoadingPluginsCallback;
 		PluginCallback_t m_pluginCallback;
@@ -288,6 +286,8 @@ namespace BetteRCon
 		TeamMap_t m_teams;
 		asio::steady_timer m_playerInfoTimer;
 		asio::steady_timer m_punkbusterPlayerListTimer;
+		
+		std::set<std::shared_ptr<asio::steady_timer>> m_scheduledTimers;
 
 		void HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::string>& playerList);
 		void HandlePlayerListTimerExpire(const ErrorCode_t& ec);

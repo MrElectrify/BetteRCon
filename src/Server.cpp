@@ -48,10 +48,29 @@ Server::Server(Worker_t& worker)
 void Server::AsyncConnect(const Endpoint_t& endpoint, ConnectCallback_t&& connectCallback,
 	DisconnectCallback_t&& disconnectCallback) noexcept
 {
-	// save disconnect callback
-	m_disconnectCallback = std::move(disconnectCallback);
 	// try to connect to the server
-	m_connection.AsyncConnect(endpoint, std::move(connectCallback), std::move(disconnectCallback),
+	m_connection.AsyncConnect(endpoint, std::move(connectCallback), 
+		[this, disconnectCallback = std::move(disconnectCallback)](const ErrorCode_t& ec) 
+	{
+		ErrorCode_t ignored;
+		ClearContainers();
+		// kill timers
+		m_serverInfoTimer.cancel(ignored);
+		m_playerInfoTimer.cancel(ignored);
+		m_punkbusterPlayerListTimer.cancel(ignored);
+		// and player timers
+		PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.begin();
+		while (playerTimerIt != m_playerTimers.end())
+		{
+			// cancel the timer
+			playerTimerIt->second.second.cancel(ignored);
+
+			// erase the entry
+			playerTimerIt = m_playerTimers.erase(playerTimerIt);
+		}
+
+		disconnectCallback(ec);
+	},
 		std::bind(&Server::HandleEvent, this, std::placeholders::_1, std::placeholders::_2));
 }
 
@@ -79,21 +98,6 @@ void Server::Disconnect() noexcept
 	ErrorCode_t ec;
 	// disconnect the connection
 	m_connection.Disconnect();
-	ClearContainers();
-	// kill timers
-	m_serverInfoTimer.cancel(ec);
-	m_playerInfoTimer.cancel(ec);
-	m_punkbusterPlayerListTimer.cancel(ec);
-	// and player timers
-	PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.begin();
-	while (playerTimerIt != m_playerTimers.end())
-	{
-		// cancel the timer
-		playerTimerIt->second.second.cancel(ec);
-		
-		// erase the entry
-		playerTimerIt = m_playerTimers.erase(playerTimerIt);
-	}
 }
 
 bool Server::IsConnected() const noexcept
@@ -202,9 +206,9 @@ bool Server::DisablePlugin(const std::string& pluginName)
 void Server::ScheduleAction(TimedAction_t&& timedAction, const std::chrono::system_clock::duration& timeFromNow)
 {
 	// create the timer
-	std::shared_ptr<asio::steady_timer> pTimer = std::make_shared<asio::steady_timer>(m_worker);
+	const std::shared_ptr<asio::steady_timer>& pTimer = 
+		*m_scheduledTimers.emplace(std::make_shared<asio::steady_timer>(m_worker)).first;
 	pTimer->expires_from_now(timeFromNow);
-
 	pTimer->async_wait(
 		[timedAction = std::move(timedAction), pTimer](const ErrorCode_t& ec)
 	{
@@ -271,6 +275,12 @@ void Server::ClearContainers()
 	m_postPluginEventCallbacks.clear();
 	m_players.clear();
 	m_teams.clear();
+	ErrorCode_t ignored;
+	for (decltype(m_scheduledTimers)::iterator it = m_scheduledTimers.begin(); it != m_scheduledTimers.end();)
+	{
+		(*it)->cancel(ignored);
+		it = m_scheduledTimers.erase(it);
+	}
 }
 
 void Server::SendResponse(const std::vector<std::string>& response, const int32_t sequence)
@@ -279,7 +289,6 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 	const Packet_t packet(response, sequence, true);
 
 	// send the packet
-	std::lock_guard connectionLock(m_connectionMutex);
 	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, const std::optional<Packet_t>&) {});
 }
 
@@ -288,8 +297,7 @@ void Server::HandleEvent(const ErrorCode_t& ec, const std::optional<Packet_t>& e
 	if (ec)
 	{
 		BetteRCon::Internal::g_stdErrLog << "ErrorCode on HandleEvent: " << ec.message() << '\n';
-		ClearContainers();
-		return m_disconnectCallback(ec);
+		return;
 	}
 
 	auto callHandlers = [&event = std::as_const(event)](const EventCallbackMap_t& eventHandlerMap)
