@@ -89,14 +89,28 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 
 void Server::Disconnect()
 {
-	m_connection.Disconnect();
-
+	// we use the non-throwing variants because we want to ensure full destruction
 	ErrorCode_t ec;
+
+	m_connection.Disconnect();
 
 	ClearContainers();
 
 	// kill timers
 	m_serverInfoTimer.cancel(ec);
+	m_playerInfoTimer.cancel(ec);
+	m_punkbusterPlayerListTimer.cancel(ec);
+
+	// and player timers
+	PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.begin();
+	while (playerTimerIt != m_playerTimers.end())
+	{
+		// cancel the timer
+		playerTimerIt->second.second.cancel(ec);
+		
+		// erase the entry
+		playerTimerIt = m_playerTimers.erase(playerTimerIt);
+	}
 
 	if (ec)
 		throw ec;
@@ -104,7 +118,14 @@ void Server::Disconnect()
 
 void Server::Disconnect(ErrorCode_t& ec) noexcept
 {
-	m_connection.Disconnect(ec);
+	try
+	{
+		Disconnect();
+	}
+	catch (const ErrorCode_t& e)
+	{
+		ec = e;
+	}
 }
 
 bool Server::IsConnected() const noexcept
@@ -149,11 +170,6 @@ const Server::PlayerMap_t& Server::GetSquad(const uint8_t teamId, const uint8_t 
 		return emptySquad;
 
 	return squadIt->second;
-}
-
-Server::ErrorCode_t Server::GetLastErrorCode() const noexcept
-{
-	return m_connection.GetLastErrorCode();
 }
 
 void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback)
@@ -253,8 +269,7 @@ Server::~Server()
 	ErrorCode_t ec;
 
 	// disconnect
-	if (IsConnected() == true)
-		Disconnect(ec);
+	Disconnect(ec);
 
 	// wait for the thread
 	if (m_thread.joinable() == true)
@@ -268,20 +283,24 @@ void Server::ClearContainers()
 	m_gotServerPlayers = false;
 
 	// disable plugins
-	for (const PluginMap_t::value_type& plugin : m_plugins)
+	PluginMap_t::iterator pluginIt = m_plugins.begin();
+	while (pluginIt != m_plugins.end())
 	{
 		// make a copy, because the string_view's pointer is no longer valid once we free the library
-		const std::string pluginName(plugin.second.pPlugin->GetPluginName());
+		const std::string pluginName(pluginIt->second.pPlugin->GetPluginName());
 		
-		if (plugin.second.pPlugin->IsEnabled() == true)
-			plugin.second.pPlugin->Disable();
-		plugin.second.pDestructor(plugin.second.pPlugin);
+		if (pluginIt->second.pPlugin->IsEnabled() == true)
+			pluginIt->second.pPlugin->Disable();
+		pluginIt->second.pDestructor(pluginIt->second.pPlugin);
 
 		// free the module
-		BFreeLibrary(plugin.second.hPluginModule);
+		BFreeLibrary(pluginIt->second.hPluginModule);
 
 		// call the unload callback
 		m_pluginCallback(pluginName.data(), false, true, "");
+
+		// erase the plugin
+		pluginIt = m_plugins.erase(pluginIt);
 	}
 
 	// clear the players and handlers
@@ -1119,7 +1138,7 @@ void Server::LoadPlugins()
 
 		if (hPlugin == nullptr)
 		{
-			m_pluginCallback(pathStr, true, false, "Failed to open file");
+			m_pluginCallback(pathStr, true, false, "Failed to open file: " + std::to_string(GetLastError()));
 			continue;
 		}
 
@@ -1288,7 +1307,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	}
 
 	// reset the timer and wait again
-	m_serverInfoTimer.expires_from_now(std::chrono::seconds(30));
+	m_serverInfoTimer.expires_from_now(std::chrono::seconds(15));
 	m_serverInfoTimer.async_wait(std::bind(
 		&Server::HandleServerInfoTimerExpire,
 		this, std::placeholders::_1));
@@ -1348,7 +1367,7 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	}
 
 	// reset the timer and wait again
-	m_playerInfoTimer.expires_from_now(std::chrono::seconds(30));
+	m_playerInfoTimer.expires_from_now(std::chrono::seconds(15));
 	m_playerInfoTimer.async_wait(std::bind(
 		&Server::HandlePlayerListTimerExpire,
 		this, std::placeholders::_1));
