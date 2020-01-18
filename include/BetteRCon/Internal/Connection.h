@@ -14,9 +14,12 @@
 #include <asio.hpp>
 
 // STL
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <queue>
 #include <unordered_map>
 #include <vector>
@@ -27,8 +30,7 @@ namespace BetteRCon
 	{
 		/*
 		 *	Connection is the raw connection to the server. It is callback based, and
-		 *	notifies the parent of any incoming data, or outgoing data. Sending and receiving
-		 *	data is not guaranteed to be thread safe.
+		 *	notifies the parent of any incoming data, or outgoing data.
 		 */
 		class Connection
 		{
@@ -40,34 +42,56 @@ namespace BetteRCon
 			using Endpoint_t = Proto_t::endpoint;
 			using Socket_t = Proto_t::socket;
 
-			// If no error occurred (this is, !ec), the packet is guaranteed to be non-nullptr, and have at least one word
-			using RecvCallback_t = std::function<void(const ErrorCode_t&, std::shared_ptr<Packet>)>;
+			using ConnectCallback_t = std::function<void(const ErrorCode_t&)>;
+			using DisconnectCallback_t = std::function<void(const ErrorCode_t&)>;
+			using RecvCallback_t = std::function<void(const ErrorCode_t&, const std::optional<Packet>&)>;
 			using RecvCallbackMap_t = std::unordered_map<int32_t, RecvCallback_t>;
 
 			using SendQueue_t = std::queue<std::vector<char>>;
 
-			// Creates a server connection
-			Connection(Worker_t& worker, RecvCallback_t&& eventCallback);
+			// Creates a disconnected server connection
+			Connection(Worker_t& worker);
 
-			// Attempts to connect to a remote server, and starts the read loop. Throws ErrorCode_t on error
-			void Connect(const Endpoint_t& endpoint);
-			// Attempts to connect to a remote server, and starts the read loop. Returns ErrorCode_t in ec on error
-			void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+			// not moveable or copyable
+			Connection(const Connection& other) = delete;
+			Connection(Connection&& other) = delete;
+			Connection& operator=(const Connection& other) = delete;
+			Connection& operator=(Connection&& other) = delete;
 
-			// Attempts to disconnect from the remote endpoint. Throws ErrorCode_t on error
-			void Disconnect();
-			// Attempts to disconnect from the remote endpoint. Returns ErrorCode_t in ec on error
-			void Disconnect(ErrorCode_t& ec) noexcept;
+			// Attempts to asynchronously connect to a remote server, and starts listening for data.
+			// If a connection is already active, this does nothing.
+			// Must not be called from any thread other than the worker thread if the worker thread
+			// is actively running the worker.
+			// @connectCallback is called when either a connection is successfully made, or an error
+			// occurs while making the connection.
+			// @disconnectCallback is called *only* after a successful connection is ended.
+			// A failed connection attempt will not invoke this callback. This callback will be
+			// called with the special reason invalid_argument if an internal error occurs
+			// and the endpoint is no longer suitable
+			void AsyncConnect(const Endpoint_t& endpoint, ConnectCallback_t&& connectCallback, 
+				DisconnectCallback_t&& disconnectCallback, RecvCallback_t&& eventCallback) noexcept;
 
-			// Gets the last error code, which will tell why the server disconnected if it did
-			ErrorCode_t GetLastErrorCode() const noexcept;
+			// Disconnects from the remote endpoint if an active connection exists.
+			// Cancels any ongoing requests or connection attempts.
+			// Can be called from any thread.
+			// Otherwise, the function has no effect.
+			void Disconnect() noexcept;
 
-			// Returns whether or not the connection is active
+			// Returns whether or not the connection appears to be active
 			bool IsConnected() const noexcept;
 
-			// Asynchronously sends a packet to the server, and calls the callback when the response is received, or immediately if an error occurs
-			// RecvCallback signature: void(const ErrorCode_t&, const Packet&)
+			// Asynchronously sends a packet to the server.
+			// @recvCallback is called when the response is received. It will be called immediately with
+			// not_connected if there is not an active connection.
+			// Can be called from any thread.
+			// It is not called if an error occurs during the request, in which case disconnectCallback is called.
 			void SendPacket(const Packet& packet, RecvCallback_t&& callback);
+			
+			// Cancels any ongoing asynchronous operations.
+			// Disconnects an active connection, calling the handler.
+			// If an active connection is in progress, this must
+			// be called from the worker thread.
+			~Connection();
 		private:
 			void CloseConnection(const ErrorCode_t& ec);
 
@@ -78,19 +102,21 @@ namespace BetteRCon
 
 			void SendUnsentBuffers();
 
-			ErrorCode_t m_lastErrorCode;
+			Worker_t& m_worker;
 
-			bool m_connected;
+			std::atomic_bool m_connected;
 
 			std::vector<char> m_incomingBuf;
 
+			DisconnectCallback_t m_disconnectCallback;
 			RecvCallback_t m_eventCallback;
 			RecvCallbackMap_t m_recvCallbacks;
+			std::mutex m_recvCallbacksMutex;
 
 			SendQueue_t m_sendQueue;
+			std::mutex m_sendQueueMutex;
 
 			Socket_t m_socket;
-
 			asio::steady_timer m_timeoutTimer;
 		};
 	}
