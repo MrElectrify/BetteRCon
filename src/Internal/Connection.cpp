@@ -66,7 +66,7 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 	packet.Serialize(sendBuf);
 	// insert the buffer into the queue
 	{
-		std::lock_guard sendQueueGuard(m_sendQueue);
+		std::lock_guard sendQueueGuard(m_sendQueueMutex);
 		m_sendQueue.push(std::move(sendBuf));
 		// ours is the only one. otherwise, a callback will handle sending our data
 		if (m_sendQueue.size() == 1)
@@ -185,7 +185,7 @@ void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferr
 			CloseConnection(ec);
 		return;
 	}
-	std::lock_guard sendQueueGuard(m_sendQueue);
+	std::lock_guard sendQueueGuard(m_sendQueueMutex);
 	// pop the buffer, we don't need it any more
 	m_sendQueue.pop();
 	// send more packets if there are some lined up
