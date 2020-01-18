@@ -1,7 +1,6 @@
 #include <BetteRCon/Server.h>
 #include <BetteRCon/Internal/Log.h>
 
-#include <condition_variable>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -11,12 +10,7 @@
 using BetteRCon::Server;
 using BetteRCon::Internal::Packet;
 
-std::condition_variable g_conVar;
 std::mutex g_mutex;
-bool g_loggedIn = false;
-bool g_loginComplete = false;
-bool g_responseReceived = false;
-bool g_loadedPlugins = false;
 
 int main(int argc, char* argv[])
 {
@@ -37,10 +31,14 @@ int main(int argc, char* argv[])
 
 		// try to connect
 		Server::Endpoint_t endpoint(asio::ip::make_address_v4(ip), port);
-
 		server.AsyncConnect(endpoint, [&server, &password]
 			(const Server::ErrorCode_t& ec)
 			{
+				if (ec)
+				{
+					BetteRCon::Internal::g_stdErrLog << "Failed to connect to server: " << ec.message() << '\n';
+					return;
+				}
 				// add a test callback on player.onJoin
 				server.RegisterCallback("player.onJoin",
 					[](const std::vector<std::string>& args)
@@ -55,14 +53,11 @@ int main(int argc, char* argv[])
 
 						if (loginRes != Server::LoginResult_OK)
 						{
-							BetteRCon::Internal::g_stdOutLog << "Failed to login to server: " << loginRes << '\n';
-							server.Disconnect();
+							BetteRCon::Internal::g_stdErrLog << "Failed to login to server: " << loginRes << '\n';
+							return server.Disconnect();
 						}
-						else
-							g_loggedIn = true;
-
-						g_loginComplete = true;
-						g_conVar.notify_one();
+						
+						BetteRCon::Internal::g_stdOutLog << "Logged in\n";
 					},
 					[&server]()
 					{
@@ -70,8 +65,9 @@ int main(int argc, char* argv[])
 						if (server.EnablePlugin("Sample Plugin") == false)
 						{
 							BetteRCon::Internal::g_stdErrLog << "Failed to enable plugin\n";
-							return 1;
+							server.Disconnect();
 						}
+						BetteRCon::Internal::g_stdOutLog << "Enabled plugin\n";
 					},
 						[](const std::string& pluginName, const bool load, const bool success, const std::string& failReason)
 					{
@@ -135,9 +131,17 @@ int main(int argc, char* argv[])
 
 				// schedule the shut down
 				server.ScheduleAction([&server] { server.Disconnect(); }, 60000);
-			}, {});
+			},
+			[] (const Server::ErrorCode_t& ec)
+			{
+				if (ec)
+				{
+					BetteRCon::Internal::g_stdErrLog << "Disconnected from server: " << ec.message() << '\n';
+					return;
+				}
+			});
 
-
+		worker.run();
 	}
 
 	BetteRCon::Internal::g_stdOutLog << "Testing complete\n";
