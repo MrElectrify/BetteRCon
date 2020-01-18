@@ -22,15 +22,10 @@
 
 using BetteRCon::Server;
 
-const std::string Server::s_LoginResultStr[] = { "OK", "Password was not set by the server", "Password was incorrect", "Unknown" };
-int32_t Server::s_lastSequence = 0;
-
-Server::Server() 
+Server::Server(Worker_t& worker) 
 	: m_gotServerInfo(false), m_gotServerPlayers(false),
-	m_initializedServer(false),
-	m_connection(m_worker, 
-		std::bind(&Server::HandleEvent, this, 
-			std::placeholders::_1, std::placeholders::_2)),
+	m_initializedServer(false), m_lastSequence(false),
+	m_worker(worker), m_connection(m_worker),
 	m_serverInfoTimer(m_worker), m_playerInfoTimer(m_worker), 
 	m_punkbusterPlayerListTimer(m_worker)
 {
@@ -50,28 +45,20 @@ Server::Server()
 	m_serverInfo.m_blazePlayerCount = 0;
 }
 
-void Server::Connect(const Endpoint_t& endpoint)
+void Server::AsyncConnect(const Endpoint_t& endpoint, ConnectCallback_t&& connectCallback,
+	DisconnectCallback_t&& disconnectCallback) noexcept
 {
+	// save disconnect callback
+	m_disconnectCallback = std::move(disconnectCallback);
 	// try to connect to the server
-	m_connection.Connect(endpoint);
-
-	// we are successfully connected. start the worker thread
-	m_thread = std::thread(std::bind(static_cast<size_t(Worker_t::*)()>(&Worker_t::run), &m_worker));
+	m_connection.AsyncConnect(endpoint, std::move(connectCallback), std::move(disconnectCallback),
+		std::bind(&Server::HandleEvent, this, std::placeholders::_1, std::placeholders::_2));
 }
 
-void Server::Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept
-{
-	try
-	{
-		Connect(endpoint);
-	}
-	catch (const ErrorCode_t& e)
-	{
-		ec = e;
-	}
-}
-
-void Server::Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback)
+void Server::AsyncLogin(const std::string& password, LoginCallback_t&& loginCallback, 
+	FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback,
+	PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, 
+	ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback) noexcept
 {
 	// send the login request
 	SendCommand({ "login.hashed" }, 
@@ -79,7 +66,6 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 			std::placeholders::_1, std::placeholders::_2, password, loginCallback));
 
 	// store the callbacks
-	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
 	m_finishedLoadingPluginsCallback = std::move(finishedLoadingPluginsCallback);
 	m_pluginCallback = std::move(pluginCallback);
@@ -87,20 +73,17 @@ void Server::Login(const std::string& password, LoginCallback_t&& loginCallback,
 	m_playerInfoCallback = std::move(playerInfoCallback);
 }
 
-void Server::Disconnect()
+void Server::Disconnect() noexcept
 {
 	// we use the non-throwing variants because we want to ensure full destruction
 	ErrorCode_t ec;
-
+	// disconnect the connection
 	m_connection.Disconnect();
-
 	ClearContainers();
-
 	// kill timers
 	m_serverInfoTimer.cancel(ec);
 	m_playerInfoTimer.cancel(ec);
 	m_punkbusterPlayerListTimer.cancel(ec);
-
 	// and player timers
 	PlayerTimerMap_t::iterator playerTimerIt = m_playerTimers.begin();
 	while (playerTimerIt != m_playerTimers.end())
@@ -110,21 +93,6 @@ void Server::Disconnect()
 		
 		// erase the entry
 		playerTimerIt = m_playerTimers.erase(playerTimerIt);
-	}
-
-	if (ec)
-		throw ec;
-}
-
-void Server::Disconnect(ErrorCode_t& ec) noexcept
-{
-	try
-	{
-		Disconnect();
-	}
-	catch (const ErrorCode_t& e)
-	{
-		ec = e;
 	}
 }
 
@@ -175,19 +143,19 @@ const Server::PlayerMap_t& Server::GetSquad(const uint8_t teamId, const uint8_t 
 void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t&& recvCallback)
 {
 	// create our packet
-	Packet_t packet(command, s_lastSequence++);
+	Packet_t packet(command, m_lastSequence++);
 
 	// send the packet
-	std::lock_guard connectionLock(m_connectionMutex);
-	m_connection.SendPacket(packet, [ recvCallback{ std::move(recvCallback) }](const Connection_t::ErrorCode_t& ec, std::shared_ptr<Packet_t> packet)
-	{
-		// make sure we don't have an error
-		if (ec)
-			return recvCallback(ec, std::vector<std::string>{});
+	m_connection.SendPacket(packet, [recvCallback{ std::move(recvCallback) }]
+		(const Connection_t::ErrorCode_t& ec, const std::optional<Packet_t>& packet)
+		{
+			// make sure we don't have an error
+			if (ec)
+				return recvCallback(ec, std::vector<std::string>{});
 		
-		// return the words to the outside callback
-		recvCallback(ec, packet->GetWords());
-	});
+			// return the words to the outside callback
+			recvCallback(ec, packet->GetWords());
+		});
 }
 
 void Server::RegisterCallback(const std::string& eventName, EventCallback_t&& eventCallback)
@@ -267,13 +235,8 @@ void Server::MovePlayer(const uint8_t teamId, const uint8_t squadId, const std::
 Server::~Server()
 {
 	ErrorCode_t ec;
-
 	// disconnect
-	Disconnect(ec);
-
-	// wait for the thread
-	if (m_thread.joinable() == true)
-		m_thread.join();
+	Disconnect();
 }
 
 void Server::ClearContainers()
@@ -317,20 +280,14 @@ void Server::SendResponse(const std::vector<std::string>& response, const int32_
 
 	// send the packet
 	std::lock_guard connectionLock(m_connectionMutex);
-	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, std::shared_ptr<Packet_t>) {});
+	m_connection.SendPacket(packet, [](const Connection_t::ErrorCode_t&, const std::optional<Packet_t>&) {});
 }
 
-void Server::HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event)
+void Server::HandleEvent(const ErrorCode_t& ec, const std::optional<Packet_t>& event)
 {
 	if (ec)
 	{
 		BetteRCon::Internal::g_stdErrLog << "ErrorCode on HandleEvent: " << ec.message() << '\n';
-		ClearContainers();
-		return m_disconnectCallback(ec);
-	}
-
-	if (event == nullptr)
-	{
 		ClearContainers();
 		return m_disconnectCallback(ec);
 	}
@@ -464,7 +421,7 @@ void Server::HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<st
 
 void Server::FireEvent(const std::vector<std::string>& eventArgs)
 {
-	HandleEvent(ErrorCode_t{}, std::make_shared<Packet_t>(eventArgs, 0));
+	HandleEvent(ErrorCode_t{}, std::make_optional<Packet_t>(eventArgs, 0));
 }
 
 void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
@@ -473,8 +430,7 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "PlayerInfo was too small size: " << playerInfo.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -482,8 +438,7 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "PlayerInfo did not have 10 members: " << playerInfo[1] << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -540,8 +495,7 @@ void Server::HandlePlayerInfo(const std::vector<std::string>& playerInfo)
 	catch (const std::exception& e)
 	{
 		BetteRCon::Internal::g_stdErrLog << "ERROR: Malformed playerInfo\n";
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -591,8 +545,7 @@ void Server::HandleOnAuthenticated(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnAuthenticated did not have 2 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 	
@@ -627,8 +580,7 @@ void Server::HandleOnChat(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnChat did not have at least 4 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -707,8 +659,7 @@ void Server::HandleOnJoin(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnJoin did not have 3 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -742,8 +693,7 @@ void Server::HandleOnKill(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnKill did not have 5 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -786,8 +736,7 @@ void Server::HandleOnLeave(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnLeave did not have at least members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -816,8 +765,7 @@ void Server::HandleOnSpawn(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnSpawn did not have at least 2 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -847,8 +795,7 @@ void Server::HandleOnTeamChange(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnTeamChange did not have 4 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -888,8 +835,7 @@ void Server::HandlePunkbusterMessage(const std::vector<std::string>& eventArgs)
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "OnLeave did not have 2 members: " << eventArgs.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -1030,8 +976,7 @@ void Server::HandleMovePlayer(const uint8_t oldTeamId, const uint8_t oldSquadId,
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "ERROR: MovePlayer sent an invalid response of size " << response.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -1226,8 +1171,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	{
 		// disconnect, the server is not OK
 		BetteRCon::Internal::g_stdErrLog << "ServerInfo response not OK: " << serverInfo[0] << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -1235,8 +1179,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	{
 		// disconnect, the server is not OK
 		BetteRCon::Internal::g_stdErrLog << "ServerInfo size too small: " << serverInfo.size() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -1287,8 +1230,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	{
 		// they sent bad serverInfo. disconnect
 		BetteRCon::Internal::g_stdErrLog << "Error parsing serverInfo: " << e.what() << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -1343,16 +1285,14 @@ void Server::HandlePlayerList(const ErrorCode_t& ec, const std::vector<std::stri
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "PlayerInfo sent empty response\n";
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 	else if (playerInfo[0] != "OK")
 	{
 		// the server is not ok, disconnect
 		BetteRCon::Internal::g_stdErrLog << "PlayerInfo sent not OK response: " << playerInfo[0] << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 
@@ -1393,8 +1333,7 @@ void Server::HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector
 	{
 		// disconnect, the server is not OK
 		BetteRCon::Internal::g_stdErrLog << "Punkbuster PlayerList response empty\n";
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 
 	}
@@ -1403,8 +1342,7 @@ void Server::HandlePunkbusterPlayerList(const ErrorCode_t& ec, const std::vector
 	{
 		// disconnect, the server is not OK
 		BetteRCon::Internal::g_stdErrLog << "Punkbuster PlayerList sent not OK response: " << response[0] << '\n';
-		ErrorCode_t ec;
-		Disconnect(ec);
+		Disconnect();
 		return;
 	}
 }

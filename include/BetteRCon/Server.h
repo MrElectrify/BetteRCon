@@ -13,6 +13,7 @@
 #include <functional>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -45,7 +46,7 @@ namespace BetteRCon
 			LoginResult_Count
 		};
 
-		static const std::string s_LoginResultStr[LoginResult_Count];
+		static constexpr std::string_view s_LoginResultStr[LoginResult_Count] = { "OK", "Password was not set by the server", "Password was incorrect", "Unknown" };
 
 		struct ServerInfo
 		{
@@ -119,6 +120,7 @@ namespace BetteRCon
 		using ErrorCode_t = Connection_t::ErrorCode_t;
 		using EventCallback_t = std::function<void(const std::vector<std::string>& eventArgs)>;
 		using EventCallbackMap_t = std::unordered_multimap<std::string, EventCallback_t>;
+		using ConnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
 		using DisconnectCallback_t = std::function<void(const ErrorCode_t& ec)>;
 		using FinishedLoadingPluginsCallback_t = std::function<void()>;
 		using LoginCallback_t = std::function<void(const LoginResult result)>;
@@ -142,16 +144,32 @@ namespace BetteRCon
 		using ServerInfoCallback_t = std::function<void(const ServerInfo& info)>;
 		using TimedAction_t = std::function<void()>;
 		using Worker_t = Connection_t::Worker_t;
-		// Default constructor. Creates thread
-		Server();
+		// Default constructor
+		Server(Worker_t& worker);
 
-		// Attempts to connect to a server. Throws ErrorCode_t on error
-		void AsyncConnect(const Endpoint_t& endpoint);
+		Server(const Server& other) = delete;
+		Server(Server&& other) = delete;
+
+		Server& operator=(const Server& other) = delete;
+		Server& operator=(Server&& other) = delete;
+
+		// Attempts to asynchronously connect to a remote server, and starts listening for data.
+		// @connectCallback is called when either a connection is successfully made, or an error
+		// occurs while making the connection.
+		// @disconnectCallback is called *only* after a successful connection is ended.
+		// A failed connection attempt will not invoke this callback. This callback will be
+		// called with the special reason invalid_argument if an internal error occurs
+		// and the endpoint is no longer suitable
+		void AsyncConnect(const Endpoint_t& endpoint, ConnectCallback_t&& connectCallback,
+			DisconnectCallback_t&& disconnectCallback) noexcept;
 
 		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. 
 		// Calls disconnectCallback when the server disconnects, pluginCallback when a plugin (un)loads or fails to load, 
 		// eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
-		void AsyncLogin(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
+		void AsyncLogin(const std::string& password, LoginCallback_t&& loginCallback, 
+			FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, 
+			PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, 
+			ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback) noexcept;
 
 		// Attempts to disconnect from an active server.
 		// If no connection is active, this does nothing.
@@ -202,7 +220,7 @@ namespace BetteRCon
 
 		void SendResponse(const std::vector<std::string>& response, const int32_t sequence);
 
-		void HandleEvent(const ErrorCode_t& ec, std::shared_ptr<Packet_t> event);
+		void HandleEvent(const ErrorCode_t& ec, const std::optional<Packet_t>& event);
 		void HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback);
 		void HandleLoginRecvResponse(const ErrorCode_t& ec, const std::vector<std::string>& response, const LoginCallback_t& loginCallback);
 
@@ -235,11 +253,10 @@ namespace BetteRCon
 		bool m_gotServerPlayers;
 		bool m_initializedServer;
 
-		static int32_t s_lastSequence;
+		int32_t m_lastSequence;
 
-		Worker_t m_worker;
+		Worker_t& m_worker;
 		Connection_t m_connection;
-		std::thread m_thread;
 
 		std::mutex m_connectionMutex;
 
