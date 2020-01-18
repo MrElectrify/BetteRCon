@@ -12,14 +12,12 @@ void Connection::AsyncConnect(const Endpoint_t& endpoint, ConnectCallback_t&& co
 {
 	// make sure we are not already connected
 	if (m_connected == true)
-		return;
-
+		return connectCallback(asio::error::make_error_code(asio::error::already_connected));
 	// save the disconnect and event callbacks
 	m_disconnectCallback = std::move(disconnectCallback);
 	m_eventCallback = std::move(eventCallback);
-
+	// try to connect
 	ErrorCode_t ec;
-
 	m_socket.async_connect(endpoint, [this, connectCallback = std::move(connectCallback)]
 		(const ErrorCode_t& ec)
 		{

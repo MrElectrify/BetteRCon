@@ -146,19 +146,16 @@ namespace BetteRCon
 		Server();
 
 		// Attempts to connect to a server. Throws ErrorCode_t on error
-		void Connect(const Endpoint_t& endpoint);
-		// Attempts to connect to a server. Returns ErrorCode_t in on error
-		void Connect(const Endpoint_t& endpoint, ErrorCode_t& ec) noexcept;
+		void AsyncConnect(const Endpoint_t& endpoint);
 
 		// Attempts to login to the server using a hashed password, and begins the serverInfo/playerInfo loop on success. 
 		// Calls disconnectCallback when the server disconnects, pluginCallback when a plugin (un)loads or fails to load, 
 		// eventCallback for every event, loginCallback on completion with the result, and saves serverInfoCallback and playerInfoCallback
-		void Login(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
+		void AsyncLogin(const std::string& password, LoginCallback_t&& loginCallback, DisconnectCallback_t&& disconnectCallback, FinishedLoadingPluginsCallback_t&& finishedLoadingPluginsCallback, PluginCallback_t&& pluginCallback, EventCallback_t&& eventCallback, ServerInfoCallback_t&& serverInfoCallback, PlayerInfoCallback_t&& playerInfoCallback);
 
-		// Attempts to disconnect from an active server. Throws ErrorCode_t on error
-		void Disconnect();
-		// Attempts to disconnect from an active server. Returns ErrorCode_t in ec error
-		void Disconnect(ErrorCode_t& ec) noexcept;
+		// Attempts to disconnect from an active server.
+		// If no connection is active, this does nothing.
+		void Disconnect() noexcept;
 
 		// Returns whether or not we are connected
 		bool IsConnected() const noexcept;

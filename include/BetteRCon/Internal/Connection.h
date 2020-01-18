@@ -59,7 +59,6 @@ namespace BetteRCon
 			Connection& operator=(Connection&& other) = delete;
 
 			// Attempts to asynchronously connect to a remote server, and starts listening for data.
-			// If a connection is already active, this does nothing.
 			// Must not be called from any thread other than the worker thread if the worker thread
 			// is actively running the worker.
 			// @connectCallback is called when either a connection is successfully made, or an error
