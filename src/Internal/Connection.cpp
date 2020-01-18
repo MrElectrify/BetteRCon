@@ -65,18 +65,12 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 	std::vector<char> sendBuf;
 	packet.Serialize(sendBuf);
 	// insert the buffer into the queue
-	{
-		std::lock_guard sendQueueGuard(m_sendQueueMutex);
-		m_sendQueue.push(std::move(sendBuf));
-		// ours is the only one. otherwise, a callback will handle sending our data
-		if (m_sendQueue.size() == 1)
-			SendUnsentBuffers();
-	}
+	m_sendQueue.push(std::move(sendBuf));
+	// ours is the only one. otherwise, a callback will handle sending our data
+	if (m_sendQueue.size() == 1)
+		SendUnsentBuffers();
 	// save the callback
-	{
-		std::lock_guard recvCallbacksGuard(m_recvCallbacksMutex);
-		m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
-	}
+	m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
 }
 
 Connection::~Connection()
@@ -143,7 +137,6 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	if (receivedPacket->IsResponse() == true &&
 		receivedPacket->GetWords().size() > 0)
 	{
-		std::lock_guard recvCallbacksGuard(m_recvCallbacksMutex);
 		// return the response to the caller
 		auto callbackFnIt = m_recvCallbacks.find(receivedPacket->GetSequence());
 		if (callbackFnIt == m_recvCallbacks.end())
@@ -151,10 +144,11 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 			// this should not happen. abort
 			return CloseConnection(asio::error::make_error_code(asio::error::invalid_argument));
 		}
-		// call the callback
-		callbackFnIt->second(ErrorCode_t{}, receivedPacket);
+		const auto fn = callbackFnIt->second;
 		// remove the callback
 		m_recvCallbacks.erase(callbackFnIt);
+		// call the callback
+		fn(ErrorCode_t{}, receivedPacket);
 	}
 	else
 	{
@@ -185,7 +179,6 @@ void Connection::HandleWrite(const ErrorCode_t& ec, const size_t bytes_transferr
 			CloseConnection(ec);
 		return;
 	}
-	std::lock_guard sendQueueGuard(m_sendQueueMutex);
 	// pop the buffer, we don't need it any more
 	m_sendQueue.pop();
 	// send more packets if there are some lined up

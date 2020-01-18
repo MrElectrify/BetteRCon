@@ -18,7 +18,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <queue>
 #include <unordered_map>
@@ -82,7 +81,7 @@ namespace BetteRCon
 			// Asynchronously sends a packet to the server.
 			// @recvCallback is called when the response is received. It will be called immediately with
 			// not_connected if there is not an active connection.
-			// Can be called from any thread.
+			// Can only be called from the worker thread.
 			// It is not called if an error occurs during the request, in which case disconnectCallback is called.
 			void SendPacket(const Packet& packet, RecvCallback_t&& callback);
 			
@@ -110,10 +109,8 @@ namespace BetteRCon
 			DisconnectCallback_t m_disconnectCallback;
 			RecvCallback_t m_eventCallback;
 			RecvCallbackMap_t m_recvCallbacks;
-			std::mutex m_recvCallbacksMutex;
 
 			SendQueue_t m_sendQueue;
-			std::mutex m_sendQueueMutex;
 
 			Socket_t m_socket;
 			asio::steady_timer m_timeoutTimer;
