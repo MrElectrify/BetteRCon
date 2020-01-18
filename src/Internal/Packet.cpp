@@ -98,7 +98,7 @@ int32_t Packet::GetSize() const
 	return m_size;
 }
 
-std::vector<Packet::Word> Packet::GetWords() const
+const std::vector<Packet::Word>& Packet::GetWords() const
 {
 	return m_words;
 }

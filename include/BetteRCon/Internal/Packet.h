@@ -46,7 +46,7 @@ namespace BetteRCon
 			int32_t GetSize() const;
 
 			// Gets the arguments from the packet
-			std::vector<Word> GetWords() const;
+			const std::vector<Word>& GetWords() const;
 
 			// Serializes the packet to a buffer
 			void Serialize(std::vector<char>& bufOut) const;
