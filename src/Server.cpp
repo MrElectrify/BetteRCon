@@ -1177,10 +1177,11 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	if (ec)
 		return;
 
-	if (serverInfo.size() != 26)
+	if (serverInfo.size() != 24 &&
+		serverInfo.size() != 26)
 	{
 		// disconnect, the server is not OK
-		BetteRCon::Internal::g_stdErrLog << "ServerInfo size too small: " << serverInfo.size() << '\n';
+		BetteRCon::Internal::g_stdErrLog << "ServerInfo size invalid: " << serverInfo.size() << '\n';
 		Disconnect();
 		return;
 	}
@@ -1205,36 +1206,34 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		m_serverInfo.m_roundsTotal = stoi(serverInfo[7]);
 
 		// parse scores
-		size_t offset = 0;
 		const size_t numTeams = static_cast<size_t>(stoi(serverInfo[8]));
 
 		// make sure there is space for the team scores
 		if (m_serverInfo.m_scores.m_teamScores.size() != numTeams)
 			m_serverInfo.m_scores.m_teamScores.resize(numTeams);
 
-		for (; offset < numTeams; ++offset)
+		for (size_t offset = 0; offset < numTeams; ++offset)
 		{
 			m_serverInfo.m_scores.m_teamScores[offset] = stoi(serverInfo[9 + offset]);
 		}
-		--offset;
 
-		m_serverInfo.m_scores.m_goalScore = stoi(serverInfo[10 + offset]);
+		m_serverInfo.m_scores.m_goalScore = stoi(serverInfo[9 + numTeams]);
 
 		// more generic info
-		m_serverInfo.m_onlineState = serverInfo[11 + offset];
-		m_serverInfo.m_ranked = (serverInfo[12 + offset] == "true");
-		m_serverInfo.m_punkBuster = (serverInfo[13 + offset] == "true");
-		m_serverInfo.m_hasPassword = (serverInfo[14 + offset] == "true");
-		m_serverInfo.m_serverUpTime = stoi(serverInfo[15 + offset]);
-		m_serverInfo.m_roundTime = stoi(serverInfo[16 + offset]);
-		m_serverInfo.m_serverIpAndPort = serverInfo[17 + offset];
-		m_serverInfo.m_punkBusterVersion = serverInfo[18 + offset];
-		m_serverInfo.m_joinQueueEnabled = (serverInfo[19 + offset] == "true");
-		m_serverInfo.m_region = serverInfo[20 + offset];
-		m_serverInfo.m_closestPingSite = serverInfo[21 + offset];
-		m_serverInfo.m_country = serverInfo[22 + offset];
-		m_serverInfo.m_blazePlayerCount = (serverInfo.size() >= 25) ? stoi(serverInfo[23 + offset]) : 0;
-		m_serverInfo.m_blazeGameState = serverInfo[(serverInfo.size() >= 25) ? (24 + offset) : (23 + offset)];
+		m_serverInfo.m_onlineState = serverInfo[10 + numTeams];
+		m_serverInfo.m_ranked = (serverInfo[11 + numTeams] == "true");
+		m_serverInfo.m_punkBuster = (serverInfo[12 + numTeams] == "true");
+		m_serverInfo.m_hasPassword = (serverInfo[13 + numTeams] == "true");
+		m_serverInfo.m_serverUpTime = stoi(serverInfo[14 + numTeams]);
+		m_serverInfo.m_roundTime = stoi(serverInfo[15 + numTeams]);
+		m_serverInfo.m_serverIpAndPort = serverInfo[16 + numTeams];
+		m_serverInfo.m_punkBusterVersion = serverInfo[17 + numTeams];
+		m_serverInfo.m_joinQueueEnabled = (serverInfo[18 + numTeams] == "true");
+		m_serverInfo.m_region = serverInfo[19 + numTeams];
+		m_serverInfo.m_closestPingSite = serverInfo[20 + numTeams];
+		m_serverInfo.m_country = serverInfo[21 + numTeams];
+		m_serverInfo.m_blazePlayerCount = stoi(serverInfo[22 + numTeams]);
+		m_serverInfo.m_blazeGameState = serverInfo[23 + numTeams];
 	}
 	catch (const std::exception& e)
 	{
