@@ -1177,20 +1177,18 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 	if (ec)
 		return;
 
-	// parse the result
-	if (serverInfo.size() < 1 ||
-		serverInfo[0] != "OK")
-	{
-		// disconnect, the server is not OK
-		BetteRCon::Internal::g_stdErrLog << "ServerInfo response not OK: " << serverInfo[0] << '\n';
-		Disconnect();
-		return;
-	}
-
-	if (serverInfo.size() < 24)
+	if (serverInfo.size() != 26)
 	{
 		// disconnect, the server is not OK
 		BetteRCon::Internal::g_stdErrLog << "ServerInfo size too small: " << serverInfo.size() << '\n';
+		Disconnect();
+		return;
+	}
+	// parse the result
+	if (serverInfo[0] != "OK")
+	{
+		// disconnect, the server is not OK
+		BetteRCon::Internal::g_stdErrLog << "ServerInfo response not OK: " << serverInfo[0] << '\n';
 		Disconnect();
 		return;
 	}
