@@ -57,7 +57,7 @@ public:
 
 				BetteRCon::Internal::g_stdOutLog << "[FastRoundStart]: Ran next round successfully\n";
 			});
-		}, 31000);
+		}, 11000);
 	}
 
 	void HandleLevelLoaded(const std::vector<std::string>& eventWords)
