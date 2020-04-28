@@ -1268,7 +1268,11 @@ void Server::HandleServerInfoTimerExpire(const ErrorCode_t& ec)
 {
 	// the operation was likely cancelled. stop the loop
 	if (ec)
+	{
+		// add this message so we know if it is called when it shouldn't be
+		std::cout << "TimerStop: " << ec.message() << '\n';
 		return;
+	}
 
 	SendCommand({ "serverInfo" }, std::bind(
 		&Server::HandleServerInfo, this,
