@@ -1256,7 +1256,7 @@ void Server::HandleServerInfo(const ErrorCode_t& ec, const std::vector<std::stri
 		InitializeServer();
 		m_initializedServer = true;
 	}
-
+	BetteRCon::Internal::g_stdOutLog << "Reset timer\n";
 	// reset the timer and wait again
 	m_serverInfoTimer.expires_from_now(std::chrono::seconds(15));
 	m_serverInfoTimer.async_wait(std::bind(
@@ -1270,10 +1270,10 @@ void Server::HandleServerInfoTimerExpire(const ErrorCode_t& ec)
 	if (ec)
 	{
 		// add this message so we know if it is called when it shouldn't be
-		std::cout << "TimerStop: " << ec.message() << '\n';
+		BetteRCon::Internal::g_stdOutLog << "TimerStop: " << ec.message() << '\n';
 		return;
 	}
-
+	BetteRCon::Internal::g_stdOutLog << "Timer expire\n";
 	SendCommand({ "serverInfo" }, std::bind(
 		&Server::HandleServerInfo, this,
 		std::placeholders::_1, std::placeholders::_2));
