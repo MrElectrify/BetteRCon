@@ -1,4 +1,5 @@
 #include <BetteRCon/Internal/Connection.h>
+#include <BetteRCon/Internal/Log.h>
 
 using BetteRCon::Internal::Connection;
 using BetteRCon::Internal::Packet;
@@ -70,7 +71,8 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 	if (m_sendQueue.size() == 1)
 		SendUnsentBuffers();
 	// save the callback
-	m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
+	auto it = m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
+	BetteRCon::Internal::g_stdOutLog << "Queued packet with seq " << packet.GetSequence() << " and response success " << it.second << '\n';
 }
 
 Connection::~Connection()
@@ -137,6 +139,7 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	if (receivedPacket->IsResponse() == true &&
 		receivedPacket->GetWords().size() > 0)
 	{
+		BetteRCon::Internal::g_stdOutLog << "Received response for seq " << receivedPacket->GetSequence() << '\n';
 		// return the response to the caller
 		auto callbackFnIt = m_recvCallbacks.find(receivedPacket->GetSequence());
 		if (callbackFnIt == m_recvCallbacks.end())
