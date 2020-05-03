@@ -100,6 +100,8 @@ namespace BetteRCon
 
 			void SendUnsentBuffers();
 
+			void SendPacket(const Packet& packet) noexcept;
+
 			Worker_t& m_worker;
 
 			std::atomic_bool m_connected;

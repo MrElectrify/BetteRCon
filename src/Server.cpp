@@ -334,9 +334,6 @@ void Server::HandleEvent(const ErrorCode_t& ec, const std::optional<Packet_t>& e
 
 	// call the main event handler
 	m_eventCallback(event->GetWords());
-
-	// send back the OK response
-	SendResponse({ "OK" }, event->GetSequence());
 }
 
 void Server::HandleLoginRecvHash(const ErrorCode_t& ec, const std::vector<std::string>& response, const std::string& password, const LoginCallback_t& loginCallback)

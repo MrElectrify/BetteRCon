@@ -62,17 +62,10 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 	// make sure we are connected
 	if (IsConnected() == false)
 		return callback(asio::error::make_error_code(asio::error::not_connected), std::nullopt);
-	// serialize the data into our buffer
-	std::vector<char> sendBuf;
-	packet.Serialize(sendBuf);
-	// insert the buffer into the queue
-	m_sendQueue.push(std::move(sendBuf));
-	// ours is the only one. otherwise, a callback will handle sending our data
-	if (m_sendQueue.size() == 1)
-		SendUnsentBuffers();
+	SendPacket(packet);
 	// save the callback
 	auto it = m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
-	BetteRCon::Internal::g_stdOutLog << "Queued packet with " << packet.GetWords().front() << " with seq " << packet.GetSequence() << " and response success " << it.second << '\n';
+	BetteRCon::Internal::g_stdOutLog << "Queued request " << packet.GetWords().front() << " with seq " << packet.GetSequence() << " and response success " << it.second << '\n';
 }
 
 Connection::~Connection()
@@ -157,6 +150,9 @@ void Connection::HandleReadBody(const ErrorCode_t& ec, const size_t bytes_transf
 	{
 		// move the event
 		m_eventCallback(ErrorCode_t{}, receivedPacket);
+		// send the OK response
+		Packet response({ "OK" }, receivedPacket->GetSequence(), true);
+		SendPacket(response);
 	}
 	// read the first 8 bytes from the socket, which will include the size of the packet
 	m_incomingBuf.resize(sizeof(int32_t) * 2);
@@ -197,4 +193,16 @@ void Connection::SendUnsentBuffers()
 	asio::async_write(m_socket, asio::buffer(frontBuf),
 		std::bind(&Connection::HandleWrite, this,
 			std::placeholders::_1, std::placeholders::_2));
+}
+
+void Connection::SendPacket(const Packet& packet) noexcept
+{
+	// serialize the data into our buffer
+	std::vector<char> sendBuf;
+	packet.Serialize(sendBuf);
+	// insert the buffer into the queue
+	m_sendQueue.push(std::move(sendBuf));
+	// ours is the only one. otherwise, a callback will handle sending our data
+	if (m_sendQueue.size() == 1)
+		SendUnsentBuffers();
 }
