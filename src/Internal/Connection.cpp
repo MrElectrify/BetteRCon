@@ -65,7 +65,8 @@ void Connection::SendPacket(const Packet& packet, RecvCallback_t&& callback)
 	SendPacket(packet);
 	// save the callback
 	auto it = m_recvCallbacks.emplace(packet.GetSequence(), std::move(callback));
-	BetteRCon::Internal::g_stdOutLog << "Queued request " << packet.GetWords().front() << " with seq " << packet.GetSequence() << " and response success " << it.second << '\n';
+	BetteRCon::Internal::g_stdOutLog << "Queued request " << packet.GetWords().front() << " with seq " << packet.GetSequence() << \
+		" and response success " << it.second << " (queue size " << m_sendQueue.size() << ", callback size: " << m_recvCallbacks.size() << ")\n";
 }
 
 Connection::~Connection()
