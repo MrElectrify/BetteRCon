@@ -148,11 +148,12 @@ void Server::SendCommand(const std::vector<std::string>& command, RecvCallback_t
 {
 	// create our packet
 	Packet_t packet(command, m_lastSequence++);
-
+	BetteRCon::Internal::g_stdOutLog << "Sending command " << command.front() << " with seq " << packet.GetSequence() << '\n';
 	// send the packet
-	m_connection.SendPacket(packet, [recvCallback{ std::move(recvCallback) }]
+	m_connection.SendPacket(packet, [sequence = packet.GetSequence(), recvCallback{ std::move(recvCallback) }]
 		(const Connection_t::ErrorCode_t& ec, const std::optional<Packet_t>& packet)
 		{
+			BetteRCon::Internal::g_stdOutLog << "Received response for " << sequence << ": " << packet.has_value() << '\n';
 			// make sure we don't have an error
 			if (ec)
 				return recvCallback(ec, std::vector<std::string>{});
